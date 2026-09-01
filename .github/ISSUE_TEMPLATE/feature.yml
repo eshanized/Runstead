@@ -1,0 +1,54 @@
+name: Feature Deliverable
+description: Propose a user-visible feature or architectural deliverable for Runstead
+title: "feat: "
+labels: ["type:feature", "roadmap", "status:planned"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a feature deliverable! All feature requests contributing to the public roadmap should include target milestones, acceptance criteria, and effort estimates.
+  - type: input
+    id: milestone
+    attributes:
+      label: Target Milestone
+      description: e.g. M1: Foundation & Reseller Architecture, M2: Core Platform, etc.
+      placeholder: "M4: Provisioning & Automation Engine"
+    validations:
+      required: true
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimated Effort (Story Points)
+      description: Fibonacci effort estimate scale
+      options:
+        - "1 - Trivial change / config"
+        - "2 - Small UI / isolated function"
+        - "3 - Standard feature / component"
+        - "5 - Complex module / multi-file"
+        - "8 - Major subsystem / external integration"
+        - "13 - Deep architectural overhaul"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Clear explanation of what this feature does and why it is needed.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: List specific conditions that must be verified before marking complete.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Automated tests written and passing
+        - [ ] Documentation updated
+    validations:
+      required: true
+  - type: textarea
+    id: verification-evidence
+    attributes:
+      label: Verification & Evidence Plan
+      description: Describe what tests, routes, or files will provide evidence of completion.
