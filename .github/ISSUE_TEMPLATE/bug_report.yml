@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report an issue, defect, or unexpected behavior in Runstead
+title: "fix: "
+labels: ["type:bug", "status:in-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please report defects with reproducible steps so they can be triaged and addressed.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: What went wrong? What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to trigger the behavior.
+      placeholder: |
+        1. Go to '/demo/invoices'
+        2. Click 'Refund'
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "Low (Cosmetic / minor annoyance)"
+        - "Medium (Non-critical functional flaw)"
+        - "High (Major flow impacted with workaround)"
+        - "Critical (Blocker / data loss / system crash)"
+    validations:
+      required: true
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimated Effort
+      options:
+        - "1 - Trivial fix"
+        - "2 - Small bug fix"
+        - "3 - Moderate fix"
+        - "5 - Complex bug"
+        - "8 - Major architectural bug"
