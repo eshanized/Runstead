@@ -1,0 +1,35 @@
+name: Release Readiness Task
+description: Quality assurance, security audit, test automation, or release gating task
+title: "readiness: "
+labels: ["type:security", "roadmap", "status:planned"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Track explicit release gating criteria, security audits, performance profiling, and compliance items.
+  - type: input
+    id: milestone
+    attributes:
+      label: Gated Milestone
+      placeholder: "M6: Security, Enterprise & Release Readiness"
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Verification Category
+      options:
+        - "Automated Test Suite Coverage"
+        - "Security Audit & Vulnerability Assessment"
+        - "Performance & Resource Optimization"
+        - "Documentation & Operator Readiness"
+        - "Production Infrastructure Deployment"
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Verification Criteria & Evidence Required
+      description: What concrete artifacts or test outputs prove this requirement is met?
+    validations:
+      required: true
