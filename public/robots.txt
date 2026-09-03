@@ -1,0 +1,7 @@
+# HostPilot Demo by Tonmoy Infrastructure
+User-agent: *
+Allow: /
+
+# Disallow automated indexing of stateful demo routes
+Disallow: /demo/
+Disallow: /demo/*
