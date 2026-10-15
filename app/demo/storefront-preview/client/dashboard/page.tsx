@@ -159,7 +159,7 @@ export default function ClientDashboardPage() {
                         </div>
                         <div className="text-slate-500 text-[11px] flex flex-wrap gap-x-3">
                           <span>IP: <strong className="text-slate-700">{srv.ipAddress || '198.51.100.50'}</strong></span>
-                          <span>Host: <strong className="text-slate-700">{srv.serverHostname || 'node1.runstead.demo'}</strong></span>
+                          <span>Host: <strong className="text-slate-700">{srv.serverHostname || 'node1.runstead.tonmoyinfrastructure.org'}</strong></span>
                           <span>Renewal: {srv.nextRenewalDate ? new Date(srv.nextRenewalDate).toLocaleDateString() : 'N/A'}</span>
                         </div>
                       </div>
