@@ -79,10 +79,10 @@
 | ID | Category | Target / Requirement | Verification Method | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **NFR-SEC-001** | **Security** | Zero committed secrets; all environment credentials loaded via environment variables and excluded from `.gitignore`. | Secret scan + git log inspection | **Verified** |
-| **NFR-SEC-002** | **Tenant Isolation** | All database queries, caches, and background workers must enforce tenant ownership boundaries with zero cross-tenant leakage. | Automated RLS tests (Phase 2) | **Designed** |
+| **NFR-SEC-002** | **Tenant Isolation** | All database queries, caches, and background workers must enforce tenant ownership boundaries with zero cross-tenant leakage. | Automated RLS tests (Phase 2) | **Verified (Phase 2)**: [`tests/db-rls.test.ts`](file:///tests/db-rls.test.ts) (25/25 tests pass); PostgreSQL RLS and `FORCE ROW LEVEL SECURITY` enforced across all 18 tenant-owned tables. |
 | **NFR-PERF-001** | **Performance** | Next.js App Router first-load shared JavaScript bundle size must remain under 120 kB (currently 87.6 kB). | `npm run build` telemetry | **Verified** (87.6 kB) |
 | **NFR-PERF-002** | **Performance** | Core web pages (Marketing, Storefront, Client Portal) must achieve LCP < 2.5s and TTFB < 600ms on standard 4G networks. | Playwright performance audit | **Designed** |
 | **NFR-REL-001** | **Reliability** | Production API routes must return standardized JSON errors with stable HTTP status codes (400, 401, 403, 404, 429, 500). | Integration route tests | **Verified** ([`app/api/project-progress/route.ts`](file:///app/api/project-progress/route.ts)) |
-| **NFR-TEST-001** | **Test Coverage** | 100% of defined business workflow mutations, selectors, and calculation engines must have automated test coverage. | Node test runner (`npm test`) | **Verified** (52/52 tests) |
+| **NFR-TEST-001** | **Test Coverage** | 100% of defined business workflow mutations, selectors, and calculation engines must have automated test coverage. | Node test runner (`npm test`) | **Verified** (77/77 tests: 52 unit + 25 RLS integration) |
 | **NFR-A11Y-001** | **Accessibility** | All interactive modals, dropdowns, and form inputs must meet WCAG 2.1 Level AA keyboard navigation standards via Radix UI primitives. | Playwright accessibility checks | **Verified** |
 | **NFR-MAINT-001**| **Maintainability**| Zero TypeScript compilation errors under strict mode (`tsconfig.json`) and 0 ESLint errors. | `npm run typecheck && npm run lint` | **Verified** |

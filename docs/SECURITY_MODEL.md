@@ -55,9 +55,15 @@ Runstead is engineered with defense-in-depth principles appropriate for multi-te
 ### 2.1 Multi-Tenant Isolation
 - **The Golden Rule**: No database query, API route, in-memory cache, background job, or data export may access data across tenant boundaries.
 - **Enforcement**:
-  1. Relational level: PostgreSQL Row-Level Security (RLS) policies.
-  2. Middleware level: Next.js middleware extracts and validates `tenant_id` before routing.
-  3. Export level: Customer or invoice CSV/JSON exports explicitly filter and bind by `tenant_id`.
+  1. **Relational & Database Engine Level (Phase 2 - Implemented & Verified)**:
+     - PostgreSQL Row-Level Security (RLS) policies activated and forced (`FORCE ROW LEVEL SECURITY`) across all 18 tenant-owned tables (`prisma/migrations/20261015081632_init_phase2_schema/migration.sql`).
+     - Transaction-scoped tenant context set via `withTenantContext` executing `SELECT set_config('app.current_tenant_id', $1, true)`.
+     - PL/pgSQL helper function `current_tenant_id()` safely handles missing, empty, or malformed contexts, evaluating to `NULL` (fail-closed).
+     - Composite foreign keys enforce that related child records (Order Items, Invoice Items, DNS records, Ticket Messages) cannot link across tenant boundaries.
+     - Unprivileged runtime role (`runstead_app`) is strictly `NOSUPERUSER` and `NOBYPASSRLS`.
+     - Verified by 25 automated PostgreSQL integration tests (`tests/db-rls.test.ts`).
+  2. **Application Middleware Level (Phase 3+)**: Next.js authentication middleware extracts and cryptographically validates `tenant_id` from trusted session tokens before routing.
+  3. **Export Level**: Customer or invoice CSV/JSON exports explicitly filter and bind by `tenant_id`.
 
 ### 2.2 Sensitive Subsystem Controls
 

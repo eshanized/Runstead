@@ -85,18 +85,20 @@ The 32 phases map directly across the three core platform horizons:
 
 ---
 
-### *THE FOLLOWING PHASES 2 THROUGH 31 ARE PROPOSED — NOT APPROVED*
-
 ### Phase 2: Server-Side PostgreSQL Schema & Multi-Tenant RLS
-- **Status**: `PROPOSED — NOT APPROVED`
-- **Objective**: Migrate the demo state model into an authoritative relational PostgreSQL database schema with Row-Level Security.
-- **Scope**: Prisma/Drizzle schema definition, migrations, tenant isolation policies, database connection pooling.
-- **Requirements Addressed**: `FR-TEN-001`, `NFR-SEC-002`, `ADR-0002`, `ADR-0003`.
+- **Status**: **ACTIVE / ACCEPTED**
+- **Objective**: Establish a production-grade relational PostgreSQL database schema with Row-Level Security (RLS) guaranteeing strict multi-tenant isolation.
+- **Scope**: Prisma ORM schema definition, versioned SQL migrations, fail-closed tenant isolation RLS policies, connection pooling and tenant context abstraction, safe idempotent seed tooling, and automated PostgreSQL integration tests.
+- **Requirements Addressed**: `FR-TEN-001`, `NFR-SEC-002`, `ADR-0002`, `ADR-0003`, `ADR-0007`, `OD-002`.
 - **Prerequisites**: Phase 1.
-- **Deliverables**: SQL migration files, Prisma/Drizzle models, database seed script, RLS integration tests.
-- **Verification Methods**: Automated database integration tests verifying cross-tenant query rejection.
-- **Acceptance Criteria**: RLS policies prevent Tenant A from reading Tenant B records under all CRUD operations.
+- **Deliverables**: `prisma/schema.prisma` (19 tables), `prisma/migrations/20261015081632_init_phase2_schema/migration.sql`, `lib/db/client.ts` (`withTenantContext` helper), `lib/db/seed.ts` & `prisma/seed.ts`, `tests/db-rls.test.ts` (25 integration tests), `.github/workflows/ci.yml` (`database-rls-tests` job), complete `docs/phase-2/` documentation suite.
+- **Verification Methods**: Automated database integration tests (`npm run test:db`) verifying cross-tenant query rejection under restricted role `runstead_app`; full suite regression tests (`npm test`, `npm run build`, `npm run test:e2e`).
+- **Acceptance Criteria**: RLS policies prevent Tenant A from reading, inserting, updating, or deleting Tenant B records under all CRUD operations; zero cross-tenant foreign-key references; fail-closed behavior on missing or malformed tenant context.
 - **Downstream Phases Affected**: Phases 3–11.
+
+---
+
+### *THE FOLLOWING PHASES 3 THROUGH 31 ARE PROPOSED — NOT APPROVED*
 
 ### Phase 3: Staff Identity, Authentication & RBAC Engine
 - **Status**: `PROPOSED — NOT APPROVED`

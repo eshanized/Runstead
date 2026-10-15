@@ -14,12 +14,12 @@
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **RSK-SEC-01** | Dependency & Supply Chain | 26 dependency vulnerabilities reported by `npm audit` resolved via Next.js 15 LTS and overrides. | Low (1) | Low (1) | **Low (1)** | Mitigated / Closed | Phase 1 (Closed) |
 | **RSK-ROA-01** | Roadmap Ambiguity | Unapproved 32-phase roadmap reconstruction requiring formal stakeholder approval. | High (3) | High (3) | **High (9)** | Open | Phase 0 Gate |
-| **RSK-DAT-01** | Tenant Isolation | Client-side `localStorage` lacks database engine RLS guarantees for multi-tenancy. | High (3) | Critical (4) | **Critical (12)** | Open | Phase 2 |
+| **RSK-DAT-01** | Tenant Isolation | Client-side `localStorage` lacks database engine RLS guarantees for multi-tenancy. | Low (1) | Low (1) | **Low (1)** | Mitigated / Closed | Phase 2 (Closed) |
 | **RSK-AUT-01** | Auth & Permissions | Reseller staff and customer authentication currently simulated without bcrypt sessions. | High (3) | High (3) | **High (9)** | Open | Phase 3 |
 | **RSK-FIN-01** | Payment Correctness | Invoices and payments are client-side simulations without Stripe webhook idempotency. | Medium (2) | Critical (4) | **High (8)** | Open | Phase 4 |
 | **RSK-PRV-01** | Provisioning Safety | 4-step provisioning pipeline simulates cgroup/hypervisor calls without live failure recovery. | Medium (2) | High (3) | **Medium (6)** | Open | Phase 12, 14 |
 | **RSK-DNS-01** | Domain & DNS Safety | DNS zone mutations are not synchronized to external authoritative root/Anycast clusters. | Medium (2) | High (3) | **Medium (6)** | Open | Phase 17 |
-| **RSK-DAT-02** | Data Loss & Recovery | Browser storage reset clears demo tenant records; no RPO/RTO backup infrastructure exists. | High (3) | High (3) | **High (9)** | Open | Phase 2, 27 |
+| **RSK-DAT-02** | Data Loss & Recovery | Browser storage reset clears demo tenant records; no RPO/RTO backup infrastructure exists. | High (3) | High (3) | **High (9)** | Open | Phase 27 |
 | **RSK-OBS-01** | Observability Gaps | Server-side API routes lack centralized APM telemetry and distributed tracing. | Medium (2) | Medium (2) | **Medium (4)** | Open | Phase 12 |
 | **RSK-EXT-01** | Third-Party Limits | GitHub REST API unauthenticated rate limits (60 req/hr) may throttle progress dashboard. | Low (1) | Medium (2) | **Low (2)** | Mitigated | Phase 0 (Mitigated) |
 
@@ -44,13 +44,14 @@
 - **Responsible Role**: Product Manager / Lead Architect.
 - **Verification Evidence for Closure**: Signed stakeholder approval recorded on ADR-0005.
 
-### RSK-DAT-01: Multi-Tenant Data Isolation Absence in Demo State
-- **Description**: The current application stores data in browser `localStorage`. No database engine exists to enforce Row-Level Security (RLS) across multiple reseller organizations.
-- **Supporting Evidence**: [`lib/demo/store.tsx`](file:///lib/demo/store.tsx) writes all records to `localStorage['runstead_demo_v3']`.
-- **Impact**: Cross-tenant data leakage if multi-tenant users are connected to a shared client session.
-- **Mitigation Strategy**: Migrate to server-side PostgreSQL with database-enforced RLS policies in Phase 2.
-- **Responsible Role**: Lead Database Architect.
-- **Verification Evidence for Closure**: Passing automated multi-tenant RLS integration tests.
+### RSK-DAT-01: Multi-Tenant Data Isolation Absence in Demo State (Mitigated / Closed)
+- **Description**: The original demo application stored data purely in browser `localStorage` without database-engine level isolation guarantees across multiple reseller organizations.
+- **Supporting Evidence**: Phase 2 established a production PostgreSQL 18.6 schema with 19 tables, versioned migrations via Prisma (`prisma/migrations/20261015081632_init_phase2_schema/migration.sql`), transaction-scoped session variable `app.current_tenant_id`, and `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` policies across all 18 tenant-owned tables. Verified by 25 automated integration tests in [`tests/db-rls.test.ts`](file:///tests/db-rls.test.ts) executed under non-superuser role `runstead_app`.
+- **Impact**: Mitigated. Database engine enforces row-level multi-tenant boundaries at the SQL layer with fail-closed default behavior.
+- **Mitigation Strategy**: Established versioned PostgreSQL migrations with RLS policies, `withTenantContext` transaction helper, and continuous integration verification in [`.github/workflows/ci.yml`](file:///home/snigdha/Downloads/hostings/.github/workflows/ci.yml).
+- **Responsible Role**: Lead Database Architect / Security Engineer.
+- **Current Status**: **Mitigated / Closed** (Phase 2).
+- **Verification Evidence for Closure**: 25/25 passing automated multi-tenant RLS integration tests in [`tests/db-rls.test.ts`](file:///tests/db-rls.test.ts) and clean CI workflow job `database-rls-tests`.
 
 ### RSK-AUT-01: Unauthenticated Reseller & Customer Sessions
 - **Description**: The current demo platform allows arbitrary navigation between platform admin, reseller settings, and customer portal without validating hashed credentials or session tokens.

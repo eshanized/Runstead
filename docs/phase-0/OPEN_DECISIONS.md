@@ -12,7 +12,7 @@
 | Decision ID | Area | Title | Severity / Urgency | Target Resolution Point |
 | :--- | :--- | :--- | :--- | :--- |
 | **OD-001** | Governance | **Adoption of the Reconstructed 32-Phase Roadmap Baseline** | High (Blocking Phase 1 Kickoff) | Phase 0 Exit Review |
-| **OD-002** | Persistence | **ORM & Persistence Technology Selection (Prisma vs. Drizzle)** | Medium | Prior to Phase 2 Kickoff |
+| **OD-002** | Persistence | **ORM & Persistence Technology Selection (Prisma vs. Drizzle)** | Resolved (Phase 2) | Resolved via ADR-0007 (Prisma ORM 6.12.0, PostgreSQL RLS, and Versioned Migrations) |
 | **OD-003** | Security | **Dependency Hardening Scope for Phase 1** | Resolved (Phase 1) | Resolved via ADR-0006 (Next.js 15 Maintenance LTS & Scoped Overrides) |
 | **OD-004** | Architecture | **Background Worker Queue Engine (BullMQ/Redis vs. PostgreSQL pg-boss)** | Medium | Prior to Phase 12 Kickoff |
 
@@ -31,12 +31,10 @@
 
 ---
 
-### OD-002: ORM & Persistence Technology Selection (Prisma vs. Drizzle)
-- **Context**: Phase 2 requires migrating the in-memory/localStorage demo state into a server-side PostgreSQL database with Row-Level Security (RLS) policies.
-- **Options Available**:
-  - **Option A (Prisma ORM)**: Mature ecosystem, excellent declarative schema DSL, built-in migration tooling (`prisma migrate`), strong client type-safety. Higher engine binary size on serverless.
-  - **Option B (Drizzle ORM)**: Extremely lightweight, zero binary engine overhead, SQL-native query syntax, optimal cold start performance on Vercel Edge. Slightly more manual migration workflow.
-- **Recommended Action**: Adopt **Prisma ORM** with PgBouncer connection pooling for schema clarity, automated migrations, and rapid developer onboarding.
+### OD-002: ORM & Persistence Technology Selection (Prisma vs. Drizzle) — Resolved
+- **Context**: Phase 2 requires migrating the in-memory/localStorage demo state model into a server-side PostgreSQL database with Row-Level Security (RLS) policies.
+- **Resolution**: **Adopted Prisma ORM (`prisma@6.12.0` / `@prisma/client@6.12.0`)**. Formally codified in [`docs/adr/0007-orm-and-production-persistence-technology-selection.md`](file:///docs/adr/0007-orm-and-production-persistence-technology-selection.md). Prisma provides declarative schema modeling, versioned migrations via `prisma migrate`, native support for custom RLS SQL policies, composite foreign key constraints enforcing tenant isolation, and transaction-scoped tenant context (`app.current_tenant_id`) with zero connection pool leakage. Fully compatible with TypeScript 5.2.2 and Next.js 15.5.28 LTS.
+- **Status**: **Resolved in Phase 2**.
 
 ---
 

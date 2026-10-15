@@ -135,16 +135,22 @@ flowchart TD
 
 ## 4. Key Subsystem Architectural Specifications
 
-### 4.1 Tenant-Aware Data Access & Row-Level Security (RLS)
-- Every relational table (Customers, Products, Orders, Invoices, Services, Domains, Tickets) will mandate a foreign key `tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT`.
-- In PostgreSQL, Row-Level Security (RLS) policies will enforce isolation at the database engine level:
+### 4.1 Tenant-Aware Data Access & Row-Level Security (RLS) — Implemented (Phase 2)
+- **Authoritative Database Schema**: Managed via Prisma ORM 6.12.0 (`prisma/schema.prisma`) with versioned migrations (`prisma/migrations/20261015081632_init_phase2_schema/migration.sql`).
+- **Enforced Foreign Keys**: Every relational table (Customers, Products, Orders, Invoices, Services, Domains, Tickets, etc.) mandates a composite foreign key preventing cross-tenant relationships.
+- **Engine-Level Row-Level Security**: All 18 tenant-owned tables enforce `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`:
   ```sql
   ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-  CREATE POLICY tenant_isolation_policy ON customers
+  ALTER TABLE customers FORCE ROW LEVEL SECURITY;
+  CREATE POLICY customers_tenant_isolation_policy ON customers
     FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
   ```
-- Application database queries will execute under a scoped transaction context setting `app.current_tenant_id`, guaranteeing that accidental omission of a `WHERE tenant_id = ...` clause cannot produce cross-tenant data leaks.
+- **Transaction-Scoped Tenant Context**: Executed via `withTenantContext(tenantId, async (tx) => { ... })` using parameterized `SELECT set_config('app.current_tenant_id', $1, true)`. The `is_local = true` parameter strictly scopes tenant identity to the active transaction, eliminating connection-pool leakage risks.
+- **Unprivileged Role**: Runtime application queries operate under the restricted `runstead_app` role (`NOSUPERUSER`, `NOBYPASSRLS`).
+- **Verified by Automated Integration Tests**: Validated by 25 automated PostgreSQL tests (`tests/db-rls.test.ts`).
+- **Coexistence with Demo State**: Offline demonstration provider (`lib/demo/store.tsx`) remains functional for browser routes and E2E journeys without live database requirements.
 
 ### 4.2 Authentication & Authorization (RBAC)
 - **Reseller Operators & Staff**: Authenticated via JWT or HTTP-only signed session cookies with BCrypt password hashing and MFA support. Staff members are mapped via `tenant_memberships` table associating their user identity with specific permissions (`admin`, `billing`, `support`, `viewer`).

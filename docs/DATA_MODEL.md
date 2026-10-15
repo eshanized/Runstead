@@ -13,9 +13,9 @@ Runstead enforces strict relational data ownership centered on the **Tenant (Res
 
 All domain operations (orders, invoices, customer management, services, DNS zones) exist strictly within the boundary of a single Tenant. Cross-tenant queries are structurally disallowed at the database level.
 
-### Current Implementation vs. Proposed Production Schema
-- **Current (Phase 0)**: Implemented in TypeScript interfaces ([`lib/demo/types.ts`](file:///lib/demo/types.ts)) and validated at runtime with Zod schemas ([`lib/demo/store.tsx`](file:///lib/demo/store.tsx)). Seed data is pre-populated with referential integrity tests ([`tests/seed-data.test.ts`](file:///tests/seed-data.test.ts)).
-- **Proposed (Phase 2+)**: Relational PostgreSQL schema with foreign keys (`ON DELETE RESTRICT`), UUID primary keys, JSONB for flexible attributes, and Row-Level Security (RLS) policies.
+### Current Demo Implementation vs. Production Relational Schema
+- **Client Demonstration Provider**: Implemented in TypeScript interfaces ([`lib/demo/types.ts`](file:///lib/demo/types.ts)) and managed via React Context ([`lib/demo/store.tsx`](file:///lib/demo/store.tsx)). Seed data is pre-populated with referential integrity tests ([`tests/seed-data.test.ts`](file:///tests/seed-data.test.ts)). Maintained for offline investor and partner demonstrations.
+- **Production Persistence Schema (Phase 2 - Accepted)**: Authoritative relational PostgreSQL schema defined in [`prisma/schema.prisma`](file:///prisma/schema.prisma). Managed via versioned SQL migrations (`prisma/migrations/20261015081632_init_phase2_schema/migration.sql`), enforcing PostgreSQL Row-Level Security (RLS) on all tenant-owned tables and validated with automated integration tests ([`tests/db-rls.test.ts`](file:///tests/db-rls.test.ts)).
 
 ---
 
@@ -217,4 +217,4 @@ erDiagram
 - **Purpose**: Asynchronous execution ledger and immutable operational audit trail.
 - **Job States**: `queued`, `processing`, `completed`, `failed`, `dead_letter`.
 - **Audit Rules**: All financial mutations, staff role changes, service state changes, and infrastructure actions append an immutable row recording `actor_id`, `action`, `resource_type`, `resource_id`, `payload`, and `ip_address`.
-- **Implementation Status**: Planned for production database migration (Phase 2).
+- **Implementation Status**: Implemented in Phase 2 PostgreSQL schema ([`prisma/schema.prisma`](file:///prisma/schema.prisma)).
