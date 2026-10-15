@@ -1,0 +1,502 @@
+// Runstead Production PostgreSQL Schema
+// Authoritative Multi-Tenant Schema for Phase 2
+// Sponsoring Organization: Tonmoy Infrastructure
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+// ==========================================
+// 1. TENANT & GLOBAL IDENTITY FOUNDATIONS
+// ==========================================
+
+/// Reseller Business Account (Root Tenant Entity)
+model Tenant {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String   @db.VarChar(255)
+  slug             String   @unique @db.VarChar(100)
+  planTier         String   @default("Launch") @map("plan_tier") @db.VarChar(50)
+  currency         String   @default("USD") @db.VarChar(3)
+  taxRate          Decimal  @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
+  brandConfig      Json?    @map("brand_config")
+  businessSettings Json?    @map("business_settings")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  memberships         TenantMembership[]
+  customers           Customer[]
+  products            Product[]
+  productPricings     ProductPricing[]
+  orders              Order[]
+  orderItems          OrderItem[]
+  invoices            Invoice[]
+  invoiceItems        InvoiceItem[]
+  payments            Payment[]
+  services            Service[]
+  domains             Domain[]
+  dnsRecords          DnsRecord[]
+  tickets             Ticket[]
+  ticketMessages      TicketMessage[]
+  providerCredentials ProviderCredential[]
+  backgroundJobs      BackgroundJob[]
+  auditEvents         AuditEvent[]
+
+  @@map("tenants")
+}
+
+/// Global User Identity (Platform-Level / Cross-Tenant Identity)
+model User {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  name            String   @db.VarChar(255)
+  passwordHash    String?  @map("password_hash") @db.VarChar(255)
+  isPlatformAdmin Boolean  @default(false) @map("is_platform_admin")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Memberships
+  memberships TenantMembership[]
+
+  @@map("users")
+}
+
+/// Tenant Membership (Links Global Users to specific Reseller Tenants with Roles)
+model TenantMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_memberships")
+}
+
+// ==========================================
+// 2. COMMERCIAL DOMAIN (TENANT-OWNED)
+// ==========================================
+
+/// Customer Profile within a Reseller Tenant
+model Customer {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  name          String   @db.VarChar(255)
+  email         String   @db.VarChar(255)
+  company       String?  @db.VarChar(255)
+  status        String   @default("active") @db.VarChar(50)
+  country       String   @default("US") @db.VarChar(2)
+  phone         String?  @db.VarChar(50)
+  creditBalance Decimal  @default(0.00) @map("credit_balance") @db.Decimal(12, 2)
+  totalRevenue  Decimal  @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
+  archived      Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  orders   Order[]
+  invoices Invoice[]
+  payments Payment[]
+  services Service[]
+  domains  Domain[]
+  tickets  Ticket[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, archived])
+  @@map("customers")
+}
+
+/// Catalog Product offered by Reseller
+model Product {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  name           String   @db.VarChar(255)
+  type           String   @db.VarChar(50)
+  description    String   @db.Text
+  setupFee       Decimal  @default(0.00) @map("setup_fee") @db.Decimal(10, 2)
+  available      Boolean  @default(true)
+  resourceLimits Json?    @map("resource_limits")
+  addons         Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  pricing    ProductPricing[]
+  orders     Order[]
+  orderItems OrderItem[]
+  services   Service[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@map("products")
+}
+
+/// Product Pricing by Billing Cycle
+model ProductPricing {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  cycle     String   @db.VarChar(50)
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, productId, cycle])
+  @@index([tenantId])
+  @@index([tenantId, productId])
+  @@map("product_pricing")
+}
+
+/// Commercial Purchase Order
+model Order {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  orderNumber  String   @map("order_number") @db.VarChar(50)
+  customerId   String   @map("customer_id") @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  status       String   @default("awaiting_payment") @db.VarChar(50)
+  amount       Decimal  @db.Decimal(12, 2)
+  billingCycle String   @map("billing_cycle") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  product  Product     @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  items    OrderItem[]
+  invoices Invoice[]
+  services Service[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("orders")
+}
+
+/// Line Item belonging to an Order
+model OrderItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
+  description String   @db.VarChar(255)
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 2)
+  totalAmount Decimal  @map("total_amount") @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  order   Order   @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  product Product @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, orderId])
+  @@map("order_items")
+}
+
+/// Billing Invoice
+model Invoice {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  invoiceNumber String    @map("invoice_number") @db.VarChar(50)
+  customerId    String    @map("customer_id") @db.Uuid
+  orderId       String?   @map("order_id") @db.Uuid
+  status        String    @default("unpaid") @db.VarChar(50)
+  issueDate     DateTime  @default(now()) @map("issue_date") @db.Timestamptz(6)
+  dueDate       DateTime  @map("due_date") @db.Timestamptz(6)
+  paidDate      DateTime? @map("paid_date") @db.Timestamptz(6)
+  currency      String    @default("USD") @db.VarChar(3)
+  subtotal      Decimal   @db.Decimal(12, 2)
+  taxRate       Decimal   @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount     Decimal   @default(0.00) @map("tax_amount") @db.Decimal(12, 2)
+  totalAmount   Decimal   @map("total_amount") @db.Decimal(12, 2)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer Customer      @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  order    Order?        @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("invoices")
+}
+
+/// Line Item belonging to an Invoice
+model InvoiceItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  description String   @db.VarChar(255)
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 2)
+  totalAmount Decimal  @map("total_amount") @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoice Invoice @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, invoiceId])
+  @@map("invoice_items")
+}
+
+/// Financial Payment Settlement Record
+model Payment {
+  id                    String    @id @default(uuid()) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  invoiceId             String    @map("invoice_id") @db.Uuid
+  customerId            String    @map("customer_id") @db.Uuid
+  amount                Decimal   @db.Decimal(12, 2)
+  currency              String    @default("USD") @db.VarChar(3)
+  method                String    @db.VarChar(50)
+  providerTransactionId String?   @map("provider_transaction_id") @db.VarChar(255)
+  status                String    @default("succeeded") @db.VarChar(50)
+  settledAt             DateTime? @map("settled_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoice  Invoice  @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Restrict)
+  customer Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, customerId])
+  @@map("payments")
+}
+
+// ==========================================
+// 3. HOSTING & DOMAIN DOMAIN (TENANT-OWNED)
+// ==========================================
+
+/// Provisioned Server or Hosting Service Instance
+model Service {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  customerId        String    @map("customer_id") @db.Uuid
+  productId         String    @map("product_id") @db.Uuid
+  orderId           String?   @map("order_id") @db.Uuid
+  serviceName       String    @map("service_name") @db.VarChar(255)
+  package           String    @db.VarChar(100)
+  domain            String?   @db.VarChar(255)
+  status            String    @default("active") @db.VarChar(50)
+  billingCycle      String    @map("billing_cycle") @db.VarChar(50)
+  price             Decimal   @db.Decimal(10, 2)
+  ipAddress         String?   @map("ip_address") @db.VarChar(45)
+  serverHostname    String?   @map("server_hostname") @db.VarChar(255)
+  username          String?   @db.VarChar(100)
+  provisioningError String?   @map("provisioning_error") @db.Text
+  resourceUsage     Json?     @map("resource_usage")
+  nextRenewalDate   DateTime? @map("next_renewal_date") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  product  Product  @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  order    Order?   @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("services")
+}
+
+/// Registered or Managed Domain
+model Domain {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  customerId     String    @map("customer_id") @db.Uuid
+  domainName     String    @map("domain_name") @db.VarChar(255)
+  status         String    @default("active") @db.VarChar(50)
+  registrar      String    @default("internal") @db.VarChar(100)
+  autoRenew      Boolean   @default(true) @map("auto_renew")
+  nameservers    Json?
+  domainType     String    @default("registered") @map("domain_type") @db.VarChar(50)
+  price          Decimal?  @db.Decimal(10, 2)
+  registeredDate DateTime? @map("registered_date") @db.Timestamptz(6)
+  expiryDate     DateTime? @map("expiry_date") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer   Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  dnsRecords DnsRecord[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, domainName])
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("domains")
+}
+
+/// Authoritative DNS Zone Record
+model DnsRecord {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  domainId  String   @map("domain_id") @db.Uuid
+  type      String   @db.VarChar(10)
+  host      String   @db.VarChar(255)
+  value     String   @db.Text
+  ttl       Int      @default(3600)
+  priority  Int?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  domain Domain @relation(fields: [tenantId, domainId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, domainId])
+  @@map("dns_records")
+}
+
+// ==========================================
+// 4. SUPPORT & FUTURE OPERATIONAL (TENANT-OWNED)
+// ==========================================
+
+/// Customer Support Ticket
+model Ticket {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  ticketNumber String   @map("ticket_number") @db.VarChar(50)
+  customerId   String   @map("customer_id") @db.Uuid
+  subject      String   @db.VarChar(255)
+  category     String   @db.VarChar(100)
+  status       String   @default("open") @db.VarChar(50)
+  priority     String   @default("medium") @db.VarChar(50)
+  assignedTo   String?  @map("assigned_to") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer Customer        @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  messages TicketMessage[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, ticketNumber])
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("tickets")
+}
+
+/// Message Thread Entry on a Support Ticket
+model TicketMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  author     String   @db.VarChar(255)
+  authorType String   @map("author_type") @db.VarChar(50)
+  message    String   @db.Text
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ticket Ticket @relation(fields: [tenantId, ticketId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, ticketId])
+  @@map("ticket_messages")
+}
+
+/// Upstream Integration and Provider Credentials (e.g. cPanel, Plesk, Stripe, Registrar)
+model ProviderCredential {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  providerName    String    @map("provider_name") @db.VarChar(100)
+  category        String    @db.VarChar(50)
+  status          String    @default("disconnected") @db.VarChar(50)
+  encryptedConfig Json?     @map("encrypted_config")
+  lastTestedAt    DateTime? @map("last_tested_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, providerName])
+  @@index([tenantId])
+  @@map("provider_credentials")
+}
+
+/// Asynchronous Provisioning and Execution Ledger
+model BackgroundJob {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  jobType      String    @map("job_type") @db.VarChar(100)
+  status       String    @default("queued") @db.VarChar(50)
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3) @map("max_attempts")
+  payload      Json?
+  errorDetails String?   @map("error_details") @db.Text
+  runAt        DateTime  @default(now()) @map("run_at") @db.Timestamptz(6)
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, runAt])
+  @@map("background_jobs")
+}
+
+/// Immutable Append-Only Audit Trail
+model AuditEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  actorId      String?  @map("actor_id") @db.VarChar(255)
+  actorType    String?  @map("actor_type") @db.VarChar(50)
+  action       String   @db.VarChar(100)
+  resourceType String   @map("resource_type") @db.VarChar(100)
+  resourceId   String?  @map("resource_id") @db.VarChar(255)
+  payload      Json?
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, resourceType])
+  @@index([tenantId, createdAt])
+  @@map("audit_events")
+}
