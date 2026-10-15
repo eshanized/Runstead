@@ -3,7 +3,7 @@ export const siteConfig = {
   tagline: 'The operating system for hosting businesses',
   description:
     'Start, operate, and grow a hosting business from one platform. Client management, billing, automation, domains, DNS, and white-label storefronts — without stitching together a dozen separate tools.',
-  url: 'https://runstead.demo',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://runstead.tonmoyinfrastructure.org',
   ogImage: '/og.png',
   locale: 'en_US',
   type: 'website' as const,
@@ -13,7 +13,7 @@ export const siteConfig = {
   },
   company: 'Tonmoy Infrastructure',
   contactEmail: 'hello@tonmoyinfrastructure.com',
-  supportEmail: 'support@runstead.demo',
+  supportEmail: 'support@runstead.tonmoyinfrastructure.org',
 };
 
 export type SiteConfig = typeof siteConfig;
