@@ -98,7 +98,7 @@ export default function HostingCatalogPage() {
               Hosting Catalog
             </Badge>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
-              Web Hosting & Cloud Servers
+              Hosting Catalog & Cloud Servers
             </h1>
             <p className="text-sm text-slate-600 max-w-2xl mx-auto">
               High-performance compute nodes, cPanel-compatible environments, and scalable virtual private servers.

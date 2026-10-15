@@ -69,7 +69,7 @@ export default function VpsCatalogPage() {
               Cloud Compute Fleet
             </Badge>
             <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
-              Virtual Private Servers
+              Cloud VPS & Virtual Private Servers
             </h1>
             <p className="text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
               Dedicated compute, KVM hypervisor isolation, fast NVMe arrays, and full root privileges across worldwide edge nodes.

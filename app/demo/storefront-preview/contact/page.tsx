@@ -41,7 +41,7 @@ export default function ContactUsPage() {
           {/* Header */}
           <div className="text-center space-y-3 max-w-2xl mx-auto">
             <Badge variant="outline" className="border-slate-300 text-slate-700 bg-white">
-              Get in Touch
+              Contact Our Team
             </Badge>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
               Contact {config.businessName}

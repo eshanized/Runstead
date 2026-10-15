@@ -130,7 +130,7 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
               </span>
               <div>
                 <span className="font-bold text-sm text-slate-900 tracking-tight block">{config.businessName}</span>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">Client Portal</span>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">Customer Client Portal</span>
               </div>
             </Link>
 

@@ -120,7 +120,7 @@ function CheckoutContent() {
       }
 
       // Check if email already exists
-      const existing = state.customers.find((c) => c.email.toLowerCase() === newCustomerEmail.toLowerCase());
+      const existing = nextState.customers.find((c) => c.email.toLowerCase() === newCustomerEmail.toLowerCase());
       if (existing) {
         customerIdToUse = existing.id;
       } else {
@@ -167,38 +167,6 @@ function CheckoutContent() {
         toast.error(err.message || 'Failed to place order');
       }
       return;
-    }
-
-    // Create customer first if new mode
-    if (customerMode === 'new') {
-      if (!newCustomerName.trim()) {
-        toast.error('Please enter customer full name.');
-        return;
-      }
-      if (!workflows.isValidEmail(newCustomerEmail)) {
-        toast.error('Please enter a valid customer email address.');
-        return;
-      }
-
-      // Check if email already exists
-      const existing = state.customers.find((c) => c.email.toLowerCase() === newCustomerEmail.toLowerCase());
-      if (existing) {
-        customerIdToUse = existing.id;
-      } else {
-        try {
-          nextState = workflows.createCustomer(nextState, {
-            name: newCustomerName,
-            email: newCustomerEmail,
-            company: newCustomerCompany,
-            country: newCustomerCountry,
-          });
-          const created = nextState.customers.find((c) => c.email.toLowerCase() === newCustomerEmail.toLowerCase())!;
-          customerIdToUse = created.id;
-        } catch (err: any) {
-          toast.error(err.message || 'Failed to create customer');
-          return;
-        }
-      }
     }
 
     try {

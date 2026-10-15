@@ -60,7 +60,7 @@ export default function ClientInvoicesPage() {
     <ClientPortalLayout>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="border-b border-slate-200 pb-6">
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Billing & Invoices</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Billing History & Invoices</h1>
           <p className="text-xs text-slate-500 mt-1">
             Official billing statements, payment receipts, and settlement status for your account.
           </p>

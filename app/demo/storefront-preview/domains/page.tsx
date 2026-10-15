@@ -125,7 +125,7 @@ export default function DomainMarketplacePage() {
           {/* Header & Search */}
           <div className="text-center space-y-4 max-w-3xl mx-auto">
             <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-              Domain Marketplace & DNS
+              Domain Registration & Marketplace
             </Badge>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
               Register Your Online Identity
@@ -154,7 +154,7 @@ export default function DomainMarketplacePage() {
                 <Search className="absolute left-3.5 h-4 w-4 text-slate-400" />
                 <Input
                   type="text"
-                  placeholder="Search your ideal domain (e.g. nexthost-test.com)..."
+                  placeholder="Search your ideal domain (e.g. yourdomain.com or nexthost-test.com)..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="border-0 shadow-none pl-10 h-11 text-sm focus-visible:ring-0"
@@ -165,7 +165,7 @@ export default function DomainMarketplacePage() {
                 className="text-white font-semibold text-sm h-11 px-6 shadow-xs hover:opacity-95"
                 style={{ backgroundColor: primaryColor }}
               >
-                Search Availability
+                Check Availability
               </Button>
             </form>
           </div>

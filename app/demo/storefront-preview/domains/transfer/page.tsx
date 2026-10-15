@@ -94,7 +94,7 @@ function DomainTransferContent() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="text-center space-y-3">
             <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-              Registrar Transfer Assistant
+              Domain Transfer Assistance
             </Badge>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
               Transfer Your Domain to {config.businessName}

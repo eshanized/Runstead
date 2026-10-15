@@ -80,7 +80,7 @@ export default function ClientTicketsPage() {
       setNewTicketOpen(false);
       setSubject('');
       setMessage('');
-      toast.success(`Ticket ${result.ticket.ticketNumber} opened successfully!`);
+      toast.success('Support ticket opened successfully');
     } catch (err: any) {
       toast.error(err.message || 'Failed to open ticket');
     }
@@ -104,7 +104,7 @@ export default function ClientTicketsPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Support Tickets</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Support Desk & Inquiries</h1>
             <p className="text-xs text-slate-500 mt-1">
               Direct technical helpdesk requests tracked and synchronized with our operations desk.
             </p>
@@ -116,7 +116,7 @@ export default function ClientTicketsPage() {
             className="text-xs text-white font-semibold"
             style={{ backgroundColor: primaryColor }}
           >
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Open New Ticket
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Open Support Ticket
           </Button>
         </div>
 
@@ -286,7 +286,7 @@ export default function ClientTicketsPage() {
                 <Label htmlFor="ticketSubject">Subject</Label>
                 <Input
                   id="ticketSubject"
-                  placeholder="e.g. Need assistance with SSL certificate installation"
+                  placeholder="e.g. Need assistance with SSL certificate installation or DNS configuration assistance"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   className="text-xs h-9"
@@ -330,7 +330,7 @@ export default function ClientTicketsPage() {
                 <Label htmlFor="ticketMsg">Detailed Message</Label>
                 <Textarea
                   id="ticketMsg"
-                  placeholder="Provide domain name, service IP, or error logs if applicable..."
+                  placeholder="Provide detailed context, domain name, service IP, or error logs if applicable..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={4}
@@ -346,7 +346,7 @@ export default function ClientTicketsPage() {
                   className="text-xs text-white w-full"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  Create Support Ticket
+                  Submit Ticket
                 </Button>
               </DialogFooter>
             </form>

@@ -262,11 +262,13 @@ export default function StorefrontCartPage() {
 
                   <CardFooter className="pt-2 border-t border-slate-100 flex flex-col gap-2">
                     <Button
-                      onClick={handleProceedToCheckout}
+                      asChild
                       className="w-full text-white font-semibold text-xs h-11 shadow-md hover:opacity-95"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      Proceed to Checkout <ArrowRight className="ml-1.5 h-4 w-4" />
+                      <Link href="/demo/checkout">
+                        Proceed to Checkout <ArrowRight className="ml-1.5 h-4 w-4" />
+                      </Link>
                     </Button>
 
                     <Button asChild variant="ghost" size="sm" className="w-full text-xs text-slate-600">

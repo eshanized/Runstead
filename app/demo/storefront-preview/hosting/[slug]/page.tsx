@@ -311,7 +311,7 @@ export default function ProductDetailsPage() {
                     className="w-full text-xs gap-1.5 h-9 bg-white"
                   >
                     <ShoppingCart className="h-3.5 w-3.5 text-slate-600" />
-                    Add to Cart
+                    Add to Shopping Cart
                   </Button>
                 </CardFooter>
               </Card>

@@ -36,7 +36,7 @@ export default function ClientServicesPage() {
 
   function handleReboot(serviceName: string, id: string) {
     setRebootingId(id);
-    toast.info(`Sending reboot signal to ${serviceName}...`);
+    toast.info(`Reboot signal sent to ${serviceName}...`);
     setTimeout(() => {
       setRebootingId(null);
       toast.success(`${serviceName} rebooted successfully (Simulated).`);
@@ -52,7 +52,7 @@ export default function ClientServicesPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">My Active Services</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Active Services & Hosting Accounts</h1>
             <p className="text-xs text-slate-500 mt-1">
               Manage your container environments, VPS virtual machines, and resource allocations.
             </p>

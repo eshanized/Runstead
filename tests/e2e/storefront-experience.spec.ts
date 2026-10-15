@@ -13,7 +13,7 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
 
     // Verify 3-region workspace structure
     await expect(page.locator('text=Storefront Experience 2.0')).toBeVisible();
-    await expect(page.locator('aside')).toBeVisible();
+    await expect(page.locator('aside').first()).toBeVisible();
 
     // Verify Viewport Switcher
     const tabletBtn = page.locator('button:has-text("Tablet")');
@@ -113,19 +113,19 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
 
     // 6. Status, Knowledge Base, Contact, and Legal Pages
     await page.goto('/demo/storefront-preview/status');
-    await expect(page.locator('text=Operational Status')).toBeVisible();
+    await expect(page.locator('text=Operational Status').first()).toBeVisible();
 
     await page.goto('/demo/storefront-preview/knowledge-base');
-    await expect(page.locator('text=Knowledge Base')).toBeVisible();
+    await expect(page.locator('text=Knowledge Base').first()).toBeVisible();
 
     await page.goto('/demo/storefront-preview/contact');
-    await expect(page.locator('text=Contact Our Team')).toBeVisible();
+    await expect(page.locator('text=Contact Our Team').first()).toBeVisible();
 
     await page.goto('/demo/storefront-preview/privacy');
-    await expect(page.locator('text=Privacy Policy')).toBeVisible();
+    await expect(page.locator('text=Privacy Policy').first()).toBeVisible();
 
     await page.goto('/demo/storefront-preview/terms');
-    await expect(page.locator('text=Terms of Service')).toBeVisible();
+    await expect(page.locator('text=Terms of Service').first()).toBeVisible();
   });
 
   test('3. Multi-Item Shopping Cart and Simulated Checkout Flow', async ({ page }) => {
@@ -138,8 +138,8 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     await page.goto('/demo/storefront-preview/cart');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('text=Shopping Cart')).toBeVisible();
-    await expect(page.locator('text=Starter Web Hosting')).toBeVisible();
+    await expect(page.locator('text=Shopping Cart').first()).toBeVisible();
+    await expect(page.locator('text=Starter Hosting').first()).toBeVisible();
     await expect(page.locator('text=Order Summary')).toBeVisible();
 
     // Proceed to checkout

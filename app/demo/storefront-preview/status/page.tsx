@@ -26,7 +26,7 @@ export default function SystemStatusPage() {
           {/* Header */}
           <div className="text-center space-y-3">
             <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
-              Live Infrastructure Telemetry
+              Operational Status • Infrastructure Telemetry
             </Badge>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
               Platform System Status

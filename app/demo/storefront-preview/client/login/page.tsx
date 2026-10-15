@@ -55,7 +55,7 @@ export default function ClientLoginPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to {config.businessName} Storefront
         </Link>
         <Badge variant="outline" className="border-amber-300 text-amber-800 bg-amber-50 text-[11px]">
-          Simulated Customer Login
+          Client Portal Access
         </Badge>
       </div>
 
@@ -111,7 +111,7 @@ export default function ClientLoginPage() {
                 </div>
 
                 <div className="flex items-center gap-1 text-xs font-semibold text-slate-400 group-hover:text-blue-600">
-                  <span>Sign In</span>
+                  <span>Access Portal</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               </button>
