@@ -388,7 +388,7 @@ function DashboardMockup() {
           <div className="h-3 w-3 rounded-full bg-success/60" />
         </div>
         <div className="ml-2 flex-1 rounded-md bg-background px-3 py-1 text-xs text-muted-foreground">
-          app.hostpilot.demo/overview
+          app.runstead.demo/overview
         </div>
       </div>
       <div className="grid grid-cols-[180px_1fr]">

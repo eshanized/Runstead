@@ -121,7 +121,7 @@ export default function ClientServicesPage() {
                         Hostname
                       </span>
                       <span className="font-mono text-slate-800 text-xs mt-0.5 block truncate">
-                        {srv.serverHostname || 'node1.hostpilot.demo'}
+                        {srv.serverHostname || 'node1.runstead.demo'}
                       </span>
                     </div>
 

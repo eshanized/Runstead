@@ -207,7 +207,7 @@ function ServicesContent() {
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground">Server Hostname</span>
-                    <div className="text-sm font-medium font-mono">{selectedService.serverHostname ?? 'node-01.ord.hostpilot.io'}</div>
+                    <div className="text-sm font-medium font-mono">{selectedService.serverHostname ?? 'node-01.ord.runstead.io'}</div>
                   </div>
                 </div>
 

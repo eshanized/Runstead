@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('HostPilot Storefront Experience 2.0 End-to-End Suite', () => {
+test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to initialize app and local storage
     await page.goto('/demo/overview');

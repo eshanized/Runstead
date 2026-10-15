@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('HostPilot Investor Demonstration End-to-End Suite', () => {
+test.describe('Runstead Investor Demonstration End-to-End Suite', () => {
 
   test('1. Marketing site navigation and pricing plan handoff to launch wizard', async ({ page }) => {
     // Visit home page

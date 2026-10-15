@@ -321,7 +321,7 @@ export default function PlatformAdminPage() {
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs text-slate-400 font-mono">{t.slug}.hostpilot.demo</div>
+                        <div className="text-xs text-slate-400 font-mono">{t.slug}.runstead.demo</div>
                       </TableCell>
                       <TableCell className="capitalize text-slate-300 text-xs">{t.category}</TableCell>
                       <TableCell>

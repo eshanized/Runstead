@@ -614,7 +614,7 @@ export function simulateProvisioning(
   const product = state.products.find((p) => p.id === order.productId);
   const customer = state.customers.find((c) => c.id === order.customerId);
 
-  const domain = params.domainName || `${order.customerName.toLowerCase().replace(/[^a-z0-9]/g, '')}.hostpilot.demo`;
+  const domain = params.domainName || `${order.customerName.toLowerCase().replace(/[^a-z0-9]/g, '')}.runstead.demo`;
   const renewalDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
   let nextServices: Service[];
@@ -1189,7 +1189,7 @@ export function purchaseDomainSimulation(
     registeredDate: now,
     expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     autoRenew: params.autoRenew ?? true,
-    nameservers: ['ns1.hostpilot.demo', 'ns2.hostpilot.demo'],
+    nameservers: ['ns1.runstead.demo', 'ns2.runstead.demo'],
     dnsZoneId: zoneId,
     domainType: 'registered',
     price,
@@ -1203,7 +1203,7 @@ export function purchaseDomainSimulation(
       { id: createId('rec'), zoneId, type: 'A', host: '@', value: '198.51.100.25', ttl: 3600, priority: null },
       { id: createId('rec'), zoneId, type: 'CNAME', host: 'www', value: normDomain, ttl: 3600, priority: null },
       { id: createId('rec'), zoneId, type: 'MX', host: '@', value: 'mail.' + normDomain, ttl: 3600, priority: 10 },
-      { id: createId('rec'), zoneId, type: 'TXT', host: '@', value: 'v=spf1 include:_spf.hostpilot.demo ~all', ttl: 3600, priority: null },
+      { id: createId('rec'), zoneId, type: 'TXT', host: '@', value: 'v=spf1 include:_spf.runstead.demo ~all', ttl: 3600, priority: null },
     ],
   };
 
@@ -1962,7 +1962,7 @@ export function checkoutCart(
         orderId,
         invoiceId,
         ipAddress: `198.51.100.${ipOctet}`,
-        serverHostname: isVps ? `vps-${serviceId.slice(-4)}.hostpilot.demo` : `node1.hostpilot.demo`,
+        serverHostname: isVps ? `vps-${serviceId.slice(-4)}.runstead.demo` : `node1.runstead.demo`,
         username: customer.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 8),
       };
 

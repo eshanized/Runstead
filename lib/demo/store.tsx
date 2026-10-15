@@ -7,8 +7,14 @@ import { seedData } from './seed-data';
 
 import { migrateStorefrontConfig } from './storefront-presets';
 
-export const CURRENT_STORAGE_VERSION = 'hostpilot_demo_v3';
-export const LEGACY_STORAGE_KEYS = ['hostpilot_demo_v1', 'hostpilot_demo_v2'];
+export const CURRENT_STORAGE_VERSION = 'runstead_demo_v3';
+export const LEGACY_STORAGE_KEYS = [
+  'hostpilot_demo_v1',
+  'hostpilot_demo_v2',
+  'hostpilot_demo_v3',
+  'runstead_demo_v1',
+  'runstead_demo_v2',
+];
 
 // Zod schemas for runtime schema-backed storage verification
 const customerSchema = z.object({
@@ -191,8 +197,11 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
   // Hydration effect: validate persisted storage safely
   useEffect(() => {
     try {
-      const v2Stored = localStorage.getItem('hostpilot_demo_v2');
-      const stored = localStorage.getItem(CURRENT_STORAGE_VERSION) || v2Stored;
+      const legacyStored =
+        localStorage.getItem('runstead_demo_v2') ||
+        localStorage.getItem('hostpilot_demo_v3') ||
+        localStorage.getItem('hostpilot_demo_v2');
+      const stored = localStorage.getItem(CURRENT_STORAGE_VERSION) || legacyStored;
       if (stored) {
         const parsed = JSON.parse(stored);
         const validated = validateStoredDemoState(parsed);

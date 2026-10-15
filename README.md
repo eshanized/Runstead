@@ -1,4 +1,4 @@
-# HostPilot — Modern Operating System for Hosting Businesses
+# Runstead — Modern Operating System for Hosting Businesses
 
 > **Start, operate, and grow a hosting business from one platform.**  
 > A modern, investor-ready SaaS alternative to WHMCS and fragmented hosting management tools.
@@ -11,7 +11,7 @@ Developed by **Tonmoy Infrastructure**.
 
 Traditional hosting operations are bogged down by legacy software (such as WHMCS) stitched together with disconnected third-party tools: separate portals for billing, different panels for support ticketing, manual registrar consoles for domain purchases, unintegrated DNS tools, and unbranded customer dashboards.
 
-**HostPilot** unifies the entire lifecycle of a hosting business into a single platform:
+**Runstead** unifies the entire lifecycle of a hosting business into a single platform:
 1. **Business Operating System (Commercial Software)**:
    - Customer and client organization management.
    - Product catalog with configurable resource limits, setup fees, and multi-cycle billing.
@@ -31,7 +31,7 @@ Traditional hosting operations are bogged down by legacy software (such as WHMCS
    - Deduplicated cloud storage and point-in-time backup recovery.
 
 > [!NOTE]  
-> **Investor Demonstration Notice**: This repository contains the complete frontend website, design system, and an interactive browser-first simulation of the HostPilot platform. It does not execute real credit card charges, propagate changes to public DNS root servers, or spin up physical servers.
+> **Investor Demonstration Notice**: This repository contains the complete frontend website, design system, and an interactive browser-first simulation of the Runstead platform. It does not execute real credit card charges, propagate changes to public DNS root servers, or spin up physical servers.
 
 ---
 

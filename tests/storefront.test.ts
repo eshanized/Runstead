@@ -260,7 +260,7 @@ describe('Storefront 2.0 Architecture & Configuration Suite', () => {
     const createdService = result.services[0];
     assert.equal(createdService.status, 'active');
     assert.ok(createdService.ipAddress?.startsWith('198.51.100.'));
-    assert.ok(createdService.serverHostname?.includes('hostpilot.demo'));
+    assert.ok(createdService.serverHostname?.includes('runstead.demo'));
   });
 
   test('Customer portal actions: open ticket, reply, and pay invoice', () => {
