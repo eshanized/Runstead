@@ -12,7 +12,7 @@
 
 | Risk ID | Category | Risk Description | Likelihood | Impact | Severity | Current Status | Target Phase |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **RSK-SEC-01** | Dependency & Supply Chain | 26 dependency vulnerabilities reported by `npm audit` (Next.js, PostCSS, etc.). | High (3) | Critical (4) | **Critical (12)** | Open | Phase 1 |
+| **RSK-SEC-01** | Dependency & Supply Chain | 26 dependency vulnerabilities reported by `npm audit` resolved via Next.js 15 LTS and overrides. | Low (1) | Low (1) | **Low (1)** | Mitigated / Closed | Phase 1 (Closed) |
 | **RSK-ROA-01** | Roadmap Ambiguity | Unapproved 32-phase roadmap reconstruction requiring formal stakeholder approval. | High (3) | High (3) | **High (9)** | Open | Phase 0 Gate |
 | **RSK-DAT-01** | Tenant Isolation | Client-side `localStorage` lacks database engine RLS guarantees for multi-tenancy. | High (3) | Critical (4) | **Critical (12)** | Open | Phase 2 |
 | **RSK-AUT-01** | Auth & Permissions | Reseller staff and customer authentication currently simulated without bcrypt sessions. | High (3) | High (3) | **High (9)** | Open | Phase 3 |
@@ -27,13 +27,14 @@
 
 ## 2. Detailed Risk Profiles & Action Plans
 
-### RSK-SEC-01: Dependency & Supply Chain Vulnerabilities
-- **Description**: Running `npm audit` reveals 26 vulnerabilities (4 moderate, 21 high, 1 critical), including Next.js Image Optimizer DoS, React Server Component deserialization issues, and PostCSS arbitrary file read advisories.
-- **Supporting Evidence**: `npm audit` exit code 1; output documented in [`docs/phase-0/BASELINE_TEST_RESULTS.md`](file:///docs/phase-0/BASELINE_TEST_RESULTS.md).
-- **Impact**: Potential Denial of Service or security compromise if deployed to public production without patching.
-- **Mitigation Strategy**: Maintain stability in Phase 0; execute a dedicated dependency upgrade and security hardening sprint in Phase 1 to upgrade to patched Next.js 14.2.x or 15.x LTS releases without breaking routes.
+### RSK-SEC-01: Dependency & Supply Chain Vulnerabilities (Mitigated / Closed)
+- **Description**: Running `npm audit` previously revealed 26 vulnerabilities (4 moderate, 21 high, 1 critical), including Next.js Image Optimizer DoS, React Server Component deserialization issues, PostCSS arbitrary file read advisories, and transitive AST recursion DoS.
+- **Supporting Evidence**: All 26 vulnerabilities resolved in Phase 1; clean `npm audit` report (exit code 0, 0 vulnerabilities) documented in [`docs/phase-1/DEPENDENCY_AUDIT.md`](file:///docs/phase-1/DEPENDENCY_AUDIT.md) and [`docs/phase-1/TEST_RESULTS.md`](file:///docs/phase-1/TEST_RESULTS.md). Automated CI gate enforced in [`.github/workflows/ci.yml`](file:///home/snigdha/Downloads/hostings/.github/workflows/ci.yml).
+- **Impact**: Mitigated. Runtime is patched against all public RCE, SSRF, and DoS vectors; automated CI gate prevents regressions.
+- **Mitigation Strategy**: Executed dedicated dependency upgrade and security hardening sprint in Phase 1: upgraded to Next.js 15.5.28 Maintenance LTS, upgraded PostCSS to 8.5.30, and applied scoped overrides for transitive packages (`braces`, `nanoid`, `cross-spawn`, `flatted`, `glob`, `ws`).
 - **Responsible Role**: Security Lead / Core Backend Engineer.
-- **Verification Evidence for Closure**: Clean `npm audit` report with 0 critical or high vulnerabilities.
+- **Current Status**: **Mitigated / Closed** (Phase 1).
+- **Verification Evidence for Closure**: Clean `npm audit` report with 0 vulnerabilities across all severities, verified lockfile reproducible via `npm ci`, and 100% passing tests (52/52 unit, 25/25 Playwright E2E).
 
 ### RSK-ROA-01: Canonical 32-Phase Roadmap Ambiguity
 - **Description**: An exhaustive repository search confirmed that a 32-phase roadmap breakdown was never committed into this repository prior to Phase 0. While a 6-milestone, 42-task model was recovered, the 32-phase plan is reconstructed and requires stakeholder approval.

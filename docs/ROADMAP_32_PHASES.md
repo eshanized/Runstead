@@ -72,18 +72,20 @@ The 32 phases map directly across the three core platform horizons:
 
 ---
 
-### *THE FOLLOWING PHASES 1 THROUGH 31 ARE PROPOSED — NOT APPROVED*
-
 ### Phase 1: Dependency Hardening & Security Baseline
-- **Status**: `PROPOSED — NOT APPROVED`
+- **Status**: **ACTIVE / ACCEPTED**
 - **Objective**: Resolve critical and high dependency advisories identified in Phase 0 audit without breaking existing Next.js routes.
-- **Scope**: Upgrade safe dependencies, audit Next.js 14.2.x patch releases, configure automated security scanning in CI.
+- **Scope**: Upgrade safe dependencies, migrate to Next.js 15.5.28 Maintenance LTS, apply audited scoped overrides, configure automated security scanning in CI (`npm audit --audit-level=high`), configure Dependabot.
 - **Requirements Addressed**: `SEC-001`, `RSK-SEC-01`.
 - **Prerequisites**: Phase 0.
-- **Deliverables**: Updated `package-lock.json`, zero critical/high CVEs, automated security check in GitHub Actions.
-- **Verification Methods**: `npm audit`, CI pipeline.
-- **Acceptance Criteria**: `npm audit` returns 0 critical/high vulnerabilities; all 52 unit tests and 25 Playwright tests pass.
+- **Deliverables**: Hardened `package.json` & `package-lock.json`, zero critical/high CVEs, CI security audit workflow step, `.github/dependabot.yml`, `docs/phase-1/` documentation suite.
+- **Verification Methods**: `npm audit` (0 vulnerabilities), `npm run typecheck` (pass), `npm run lint` (pass), `npm test` (52/52 pass), `npm run build` (65/65 routes), `npm run test:e2e` (25/25 pass).
+- **Acceptance Criteria**: `npm audit` returns 0 vulnerabilities across all levels; all 52 unit tests and 25 Playwright tests pass; CI fails on high/critical findings.
 - **Downstream Phases Affected**: Phase 2, Phase 3.
+
+---
+
+### *THE FOLLOWING PHASES 2 THROUGH 31 ARE PROPOSED — NOT APPROVED*
 
 ### Phase 2: Server-Side PostgreSQL Schema & Multi-Tenant RLS
 - **Status**: `PROPOSED — NOT APPROVED`

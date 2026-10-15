@@ -13,7 +13,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **OD-001** | Governance | **Adoption of the Reconstructed 32-Phase Roadmap Baseline** | High (Blocking Phase 1 Kickoff) | Phase 0 Exit Review |
 | **OD-002** | Persistence | **ORM & Persistence Technology Selection (Prisma vs. Drizzle)** | Medium | Prior to Phase 2 Kickoff |
-| **OD-003** | Security | **Dependency Hardening Scope for Phase 1** | High | Kickoff of Phase 1 |
+| **OD-003** | Security | **Dependency Hardening Scope for Phase 1** | Resolved (Phase 1) | Resolved via ADR-0006 (Next.js 15 Maintenance LTS & Scoped Overrides) |
 | **OD-004** | Architecture | **Background Worker Queue Engine (BullMQ/Redis vs. PostgreSQL pg-boss)** | Medium | Prior to Phase 12 Kickoff |
 
 ---
@@ -40,12 +40,10 @@
 
 ---
 
-### OD-003: Dependency Hardening Scope for Phase 1
-- **Context**: `npm audit` identifies 26 dependency advisories (4 moderate, 21 high, 1 critical), primarily in Next.js 14.2.35, PostCSS, and transitive utilities. Running `npm audit fix --force` would trigger breaking major version upgrades (Next.js 16 or Tailwind 4).
-- **Options Available**:
-  - **Option A (Recommended)**: Upgrade Next.js to the latest patched 14.2.x release and apply non-breaking transitive dependency resolutions via `package-lock.json` overrides in Phase 1.
-  - **Option B**: Full major framework upgrade to Next.js 15+ in Phase 1 (requires updating React 18 to React 19 and verifying all 28 Radix UI components).
-- **Recommended Action**: Execute Option A in Phase 1 to patch critical CVEs while preserving UI component compatibility.
+### OD-003: Dependency Hardening Scope for Phase 1 (Resolved)
+- **Context**: `npm audit` identified 26 dependency advisories (4 moderate, 21 high, 1 critical), primarily in Next.js 14.2.35, PostCSS, and transitive utilities. Running `npm audit fix --force` would trigger breaking major version upgrades (Next.js 16 or Tailwind 4). Next.js 14 was officially deprecated and unsupported by Vercel.
+- **Resolution**: **Adopted Next.js 15.5.28 (Maintenance LTS)** with React 18.2.0 retention and scoped transitive overrides. Formally codified in [`docs/adr/0006-framework-upgrade-and-dependency-security-baseline.md`](file:///docs/adr/0006-framework-upgrade-and-dependency-security-baseline.md) and [`docs/phase-1/DEPENDENCY_AUDIT.md`](file:///docs/phase-1/DEPENDENCY_AUDIT.md). Resolved 100% of critical and high advisories (`npm audit` reports 0 vulnerabilities) while preserving all 65 routes and 28 Radix UI primitives.
+- **Status**: **Resolved in Phase 1**.
 
 ---
 
