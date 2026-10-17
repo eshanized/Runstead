@@ -59,13 +59,33 @@ model User {
   name            String   @db.VarChar(255)
   passwordHash    String?  @map("password_hash") @db.VarChar(255)
   isPlatformAdmin Boolean  @default(false) @map("is_platform_admin")
+  emailVerified   DateTime? @map("email_verified") @db.Timestamptz(6)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Memberships
-  memberships TenantMembership[]
+  // Relationships
+  memberships      TenantMembership[]
+  sessions         Session[]
+  customerProfiles Customer[]
 
   @@map("users")
+}
+
+/// Global User Session for Secure Authentication
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.Text
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
 }
 
 /// Tenant Membership (Links Global Users to specific Reseller Tenants with Roles)
@@ -94,6 +114,7 @@ model TenantMembership {
 model Customer {
   id            String   @id @default(uuid()) @db.Uuid
   tenantId      String   @map("tenant_id") @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
   name          String   @db.VarChar(255)
   email         String   @db.VarChar(255)
   company       String?  @db.VarChar(255)
@@ -107,6 +128,7 @@ model Customer {
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   orders   Order[]
   invoices Invoice[]
   payments Payment[]
@@ -117,6 +139,7 @@ model Customer {
   @@unique([tenantId, id])
   @@unique([tenantId, email])
   @@index([tenantId])
+  @@index([userId])
   @@index([tenantId, status])
   @@index([tenantId, archived])
   @@map("customers")
@@ -281,6 +304,8 @@ model Payment {
   currency              String    @default("USD") @db.VarChar(3)
   method                String    @db.VarChar(50)
   providerTransactionId String?   @map("provider_transaction_id") @db.VarChar(255)
+  idempotencyKey        String?   @map("idempotency_key") @db.VarChar(255)
+  metadata              Json?
   status                String    @default("succeeded") @db.VarChar(50)
   settledAt             DateTime? @map("settled_at") @db.Timestamptz(6)
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -293,6 +318,7 @@ model Payment {
   @@index([tenantId])
   @@index([tenantId, invoiceId])
   @@index([tenantId, customerId])
+  @@index([tenantId, idempotencyKey])
   @@map("payments")
 }
 

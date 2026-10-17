@@ -55,11 +55,14 @@ export function MarketingNav() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/login">Sign in</Link>
+          </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href="/demo/launch?plan=Sandbox">Launch SaaS</Link>
+            <Link href="/demo">Explore Demo</Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/demo">Explore Demo</Link>
+            <Link href="/register">Get Started</Link>
           </Button>
         </div>
 
@@ -95,12 +98,17 @@ export function MarketingNav() {
               <div className="mt-4 flex flex-col gap-2">
                 <SheetClose asChild>
                   <Button asChild variant="outline">
-                    <Link href="/demo">Sign in</Link>
+                    <Link href="/login">Sign in</Link>
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button asChild variant="secondary">
+                    <Link href="/demo">Explore Demo</Link>
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
                   <Button asChild>
-                    <Link href="/demo">Explore Demo</Link>
+                    <Link href="/register">Get Started</Link>
                   </Button>
                 </SheetClose>
               </div>

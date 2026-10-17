@@ -202,6 +202,16 @@ function DemoTopbar() {
 
   return (
     <>
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+          <span className="font-semibold">Interactive Demo Simulation</span>
+          <span className="hidden md:inline text-muted-foreground">— Running on isolated browser state. Production business persistence and live infrastructure are untouched.</span>
+        </div>
+        <span className="text-[10px] uppercase tracking-wider font-mono bg-amber-500/20 px-1.5 py-0.5 rounded font-semibold text-amber-700 dark:text-amber-300">
+          Sandbox Mode
+        </span>
+      </div>
       <header className="flex h-14 items-center justify-between border-b border-border/60 bg-background px-4">
         <div className="flex items-center gap-3">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

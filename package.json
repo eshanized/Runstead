@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "audit": "npm audit --audit-level=high",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:unit": "SKIP_DB_TESTS=1 node --test --experimental-strip-types tests/*.test.ts",
     "test:db": "node --test --experimental-strip-types tests/db-rls.test.ts",
     "test:e2e": "playwright test",
     "db:validate": "prisma validate",
