@@ -55,22 +55,22 @@ The public site communicates a clear enterprise narrative, distinguishing curren
 
 | Route | Purpose & Highlights |
 | :--- | :--- |
-| [`/`](file:///app/page.tsx) | Complete homepage with hero, interactive dashboard preview, problem/solution breakdown, 5-step reseller launch workflow, infrastructure vision, audience segments, and indicative pricing preview. |
-| [`/platform`](file:///app/platform/page.tsx) | Platform architectural overview showing how business OS, service automation, and infrastructure layers integrate. |
-| [`/platform/billing`](file:///app/platform/billing/page.tsx) | Deep dive into customer records, automated billing cycles, invoices, refunds, and reconciliation. |
-| [`/platform/automation`](file:///app/platform/automation/page.tsx) | Visual explanation of the service lifecycle, retry handling, failure visibility, and job reconciliation. |
-| [`/platform/domains`](file:///app/platform/domains/page.tsx) | Domain search, registrar integration capabilities, external domain mapping, and DNS zone management. |
-| [`/platform/hosting`](file:///app/platform/hosting/page.tsx) | Vision for shared hosting, VPS provisioning, control panels, and the roadmap to owned infrastructure. |
-| [`/solutions`](file:///app/solutions/page.tsx) | Solutions hub with dedicated routes: [Freelancers](file:///app/solutions/%5Bslug%5D/page.tsx), [Agencies](file:///app/solutions/%5Bslug%5D/page.tsx), [Entrepreneurs](file:///app/solutions/%5Bslug%5D/page.tsx), [Existing Hosts](file:///app/solutions/%5Bslug%5D/page.tsx), and [Infrastructure](file:///app/solutions/%5Bslug%5D/page.tsx). |
-| [`/pricing`](file:///app/pricing/page.tsx) | Indicative pricing model: Sandbox (Free), Launch ($49/mo), Growth ($149/mo), Scale ($399/mo), Enterprise (Custom), with monthly/annual toggle, feature comparison, FAQ, and plan handoff to `/demo/launch`. |
-| [`/integrations`](file:///app/integrations/page.tsx) | Directory of 8 provider categories with explicit statuses: `demo`, `planned`, `available`, `roadmap`. |
-| [`/security`](file:///app/security/page.tsx) | Architectural security principles: tenant isolation, RBAC, encrypted secrets, audit logs, and abuse prevention. |
-| [`/roadmap`](file:///app/roadmap/page.tsx) | 6 evolutionary stages from SaaS foundation to owned infrastructure and developer APIs. |
-| [`/about`](file:///app/about/page.tsx) | Mission, engineering direction, and product philosophy of Tonmoy Infrastructure. |
-| [`/contact`](file:///app/contact/page.tsx) | Investor inquiry and partnership contact form with simulated submission and validation. |
-| [`/privacy`](file:///app/privacy/page.tsx) | Privacy policy and demonstration data disclosures. |
-| [`/terms`](file:///app/terms/page.tsx) | Terms of service and simulated execution guidelines. |
-| [`/demo`](file:///app/demo/page.tsx) | Interactive demo launchpad allowing direct access without signups, credentials, or credit cards. |
+| [`/`](app/page.tsx) | Complete homepage with hero, interactive dashboard preview, problem/solution breakdown, 5-step reseller launch workflow, infrastructure vision, audience segments, and indicative pricing preview. |
+| [`/platform`](app/platform/page.tsx) | Platform architectural overview showing how business OS, service automation, and infrastructure layers integrate. |
+| [`/platform/billing`](app/platform/billing/page.tsx) | Deep dive into customer records, automated billing cycles, invoices, refunds, and reconciliation. |
+| [`/platform/automation`](app/platform/automation/page.tsx) | Visual explanation of the service lifecycle, retry handling, failure visibility, and job reconciliation. |
+| [`/platform/domains`](app/platform/domains/page.tsx) | Domain search, registrar integration capabilities, external domain mapping, and DNS zone management. |
+| [`/platform/hosting`](app/platform/hosting/page.tsx) | Vision for shared hosting, VPS provisioning, control panels, and the roadmap to owned infrastructure. |
+| [`/solutions`](app/solutions/page.tsx) | Solutions hub with dedicated routes: [Freelancers](app/solutions/%5Bslug%5D/page.tsx), [Agencies](app/solutions/%5Bslug%5D/page.tsx), [Entrepreneurs](app/solutions/%5Bslug%5D/page.tsx), [Existing Hosts](app/solutions/%5Bslug%5D/page.tsx), and [Infrastructure](app/solutions/%5Bslug%5D/page.tsx). |
+| [`/pricing`](app/pricing/page.tsx) | Indicative pricing model: Sandbox (Free), Launch ($49/mo), Growth ($149/mo), Scale ($399/mo), Enterprise (Custom), with monthly/annual toggle, feature comparison, FAQ, and plan handoff to `/demo/launch`. |
+| [`/integrations`](app/integrations/page.tsx) | Directory of 8 provider categories with explicit statuses: `demo`, `planned`, `available`, `roadmap`. |
+| [`/security`](app/security/page.tsx) | Architectural security principles: tenant isolation, RBAC, encrypted secrets, audit logs, and abuse prevention. |
+| [`/roadmap`](app/roadmap/page.tsx) | 6 evolutionary stages from SaaS foundation to owned infrastructure and developer APIs. |
+| [`/about`](app/about/page.tsx) | Mission, engineering direction, and product philosophy of Tonmoy Infrastructure. |
+| [`/contact`](app/contact/page.tsx) | Investor inquiry and partnership contact form with simulated submission and validation. |
+| [`/privacy`](app/privacy/page.tsx) | Privacy policy and demonstration data disclosures. |
+| [`/terms`](app/terms/page.tsx) | Terms of service and simulated execution guidelines. |
+| [`/demo`](app/demo/page.tsx) | Interactive demo launchpad allowing direct access without signups, credentials, or credit cards. |
 
 ---
 
@@ -103,8 +103,8 @@ The `/demo/*` routes run an interactive application shell featuring real state u
 ## 5. Quick Start & Local Development
 
 ### Prerequisites
-- Node.js 18.17+ or 20+ (Node 26 tested)
-- npm 9+ or npm 12+
+- Node.js 22.6+ (the CI workflow uses Node.js 22; the test commands rely on built-in TypeScript stripping)
+- npm bundled with your Node.js installation; use `npm ci` to honor the lockfile
 
 ### 1. Install Dependencies
 ```bash
