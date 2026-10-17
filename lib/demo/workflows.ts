@@ -23,9 +23,36 @@ import type {
   PlatformTenant,
   TenantStatus,
   BillingCycle,
+  CapabilityId,
+  PlanLimits,
+  ServiceFile,
+  ServiceFileSystem,
+  ServiceDatabase,
+  ServiceDatabaseUser,
+  ServiceEmailAccount,
+  ServiceEmailForwarder,
+  ServiceSslCertificate,
+  ServiceBackup,
+  ServiceVpsData,
+  ServiceDeveloperData,
+  ServiceLog,
 } from './types.ts';
 import { pricingPlans } from '../config/pricing.ts';
 import { migrateStorefrontConfig, themePresets, defaultStorefrontConfig } from './storefront-presets.ts';
+import {
+  createDefaultFileSystem,
+  createDefaultDatabases,
+  createDefaultEmail,
+  createDefaultSsl,
+  createDefaultBackups,
+  createDefaultVpsData,
+  createDefaultDevData,
+  createDefaultServiceLogs,
+} from './service-factories.ts';
+import {
+  getDefaultCapabilitiesForProductType,
+  isCapabilityAvailableForService,
+} from './capabilities.ts';
 
 export function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 10)}`;
@@ -638,6 +665,12 @@ export function simulateProvisioning(
     nextServices = state.services.map((s) => (s.id === existingService!.id ? finalService : s));
   } else {
     const serviceId = createId('srv');
+    const ipAddress = '198.51.100.' + (Math.floor(Math.random() * 200) + 10);
+    const username = 'u_' + Math.random().toString(36).substring(2, 7);
+    const serverHostname = 'us-east-web01.runstead.tonmoyinfrastructure.org';
+    const prodType = product?.type || 'shared_hosting';
+    const caps = product?.capabilities || getDefaultCapabilitiesForProductType(prodType);
+
     finalService = {
       id: serviceId,
       serviceName: `${order.productName} (${domain})`,
@@ -653,9 +686,9 @@ export function simulateProvisioning(
       billingCycle: order.billingCycle,
       price: order.amount,
       resourceUsage: [
-        { label: 'Storage', used: 1.2, total: 20, unit: 'GB' },
-        { label: 'Bandwidth', used: 4.8, total: 100, unit: 'GB' },
-        { label: 'Databases', used: 1, total: 5, unit: 'DBs' },
+        { label: 'Storage', used: 1.2, total: product?.planLimits?.diskSpaceGB || 20, unit: 'GB' },
+        { label: 'Bandwidth', used: 4.8, total: product?.planLimits?.bandwidthGB || 100, unit: 'GB' },
+        { label: 'Databases', used: 1, total: product?.planLimits?.databases || 5, unit: 'DBs' },
       ],
       timeline: [
         {
@@ -679,9 +712,19 @@ export function simulateProvisioning(
       ],
       orderId: order.id,
       invoiceId: order.invoiceId,
-      ipAddress: '198.51.100.' + (Math.floor(Math.random() * 200) + 10),
-      serverHostname: 'srv1.cloudvista.host',
-      username: 'u_' + Math.random().toString(36).substring(2, 7),
+      ipAddress,
+      serverHostname,
+      username,
+      capabilities: caps,
+      planLimits: product?.planLimits,
+      fileSystem: createDefaultFileSystem(domain),
+      ...createDefaultDatabases(domain, username),
+      ...createDefaultEmail(domain, customer?.email || `admin@${domain}`),
+      sslCertificate: createDefaultSsl(domain),
+      backups: createDefaultBackups(domain),
+      vpsData: prodType === 'vps' ? createDefaultVpsData(domain, ipAddress) : undefined,
+      devData: createDefaultDevData(domain),
+      logs: createDefaultServiceLogs(domain),
     };
     nextServices = [finalService, ...state.services];
   }
@@ -2308,6 +2351,1215 @@ export function resetStorefrontToDefaults(state: DemoState): DemoState {
       ...defaultStorefrontConfig,
       isDraftDirty: true,
     },
+  };
+}
+
+// -------------------------------------------------------------
+// Hosting Control Center Workflows
+// -------------------------------------------------------------
+
+export function createServiceFile(
+  state: DemoState,
+  serviceId: string,
+  file: { path: string; name: string; isDir: boolean; content?: string }
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const fs = service.fileSystem || createDefaultFileSystem(service.domain || 'example.com');
+  const cleanPath = file.path.startsWith('/') ? file.path : '/' + file.path;
+
+  if (fs.files.some((f) => f.path === cleanPath)) {
+    throw new Error(`File or directory "${cleanPath}" already exists.`);
+  }
+
+  const now = new Date().toISOString();
+  const newFile: ServiceFile = {
+    path: cleanPath,
+    name: file.name,
+    isDir: file.isDir,
+    size: file.isDir ? 4096 : (file.content ? file.content.length : 0),
+    modifiedAt: now,
+    permissions: file.isDir ? '0755' : '0644',
+    content: file.isDir ? undefined : (file.content || ''),
+  };
+
+  const updatedService: Service = {
+    ...service,
+    fileSystem: {
+      files: [...fs.files, newFile],
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `${file.isDir ? 'Directory' : 'File'} created: ${cleanPath}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function updateServiceFileContent(
+  state: DemoState,
+  serviceId: string,
+  filePath: string,
+  content: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const fs = service.fileSystem || createDefaultFileSystem(service.domain || 'example.com');
+  const target = fs.files.find((f) => f.path === filePath);
+  if (!target) throw new Error(`File "${filePath}" not found in filesystem.`);
+  if (target.isDir) throw new Error(`Cannot save content to a directory.`);
+
+  const now = new Date().toISOString();
+  const updatedFiles = fs.files.map((f) => {
+    if (f.path === filePath) {
+      return {
+        ...f,
+        content,
+        size: content.length,
+        modifiedAt: now,
+      };
+    }
+    return f;
+  });
+
+  const updatedService: Service = {
+    ...service,
+    fileSystem: { files: updatedFiles },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `File saved: ${filePath} (${content.length} bytes)`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceFile(
+  state: DemoState,
+  serviceId: string,
+  filePath: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const fs = service.fileSystem || createDefaultFileSystem(service.domain || 'example.com');
+  if (filePath === '/' || filePath === '/public_html') {
+    throw new Error(`Cannot delete protected system directory "${filePath}".`);
+  }
+
+  const now = new Date().toISOString();
+  const updatedFiles = fs.files.filter((f) => f.path !== filePath && !f.path.startsWith(filePath + '/'));
+
+  const updatedService: Service = {
+    ...service,
+    fileSystem: { files: updatedFiles },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `Deleted file/folder: ${filePath}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function renameServiceFile(
+  state: DemoState,
+  serviceId: string,
+  oldPath: string,
+  newName: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const fs = service.fileSystem || createDefaultFileSystem(service.domain || 'example.com');
+  const target = fs.files.find((f) => f.path === oldPath);
+  if (!target) throw new Error(`File "${oldPath}" not found.`);
+
+  const parent = oldPath.substring(0, oldPath.lastIndexOf('/')) || '';
+  const newPath = (parent ? `${parent}/${newName}` : `/${newName}`).replace(/\/+/g, '/');
+
+  if (fs.files.some((f) => f.path === newPath)) {
+    throw new Error(`A file or folder named "${newName}" already exists in this directory.`);
+  }
+
+  const now = new Date().toISOString();
+  const updatedFiles = fs.files.map((f) => {
+    if (f.path === oldPath) {
+      return { ...f, path: newPath, name: newName, modifiedAt: now };
+    }
+    if (f.path.startsWith(oldPath + '/')) {
+      const childSub = f.path.substring(oldPath.length);
+      return { ...f, path: `${newPath}${childSub}`, modifiedAt: now };
+    }
+    return f;
+  });
+
+  const updatedService: Service = {
+    ...service,
+    fileSystem: { files: updatedFiles },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `Renamed ${oldPath} to ${newPath}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// Database Workflows
+export function createServiceDatabase(
+  state: DemoState,
+  serviceId: string,
+  name: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!cleanName) throw new Error('Database name must contain alphanumeric characters.');
+
+  const existingDbs = service.databases || [];
+  const maxDbs = service.planLimits?.databases || 5;
+  if (existingDbs.length >= maxDbs) {
+    throw new Error(`Database limit reached (${existingDbs.length}/${maxDbs}). Upgrade plan to add more.`);
+  }
+
+  if (existingDbs.some((db) => db.name.toLowerCase() === cleanName.toLowerCase())) {
+    throw new Error(`Database "${cleanName}" already exists.`);
+  }
+
+  const now = new Date().toISOString();
+  const newDb: ServiceDatabase = {
+    id: createId('db'),
+    name: cleanName,
+    sizeMB: 0.1,
+    collation: 'utf8mb4_unicode_ci',
+    charset: 'utf8mb4',
+    users: [],
+    tables: [],
+    createdAt: now,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    databases: [...existingDbs, newDb],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'database',
+        message: `Database created: ${cleanName}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceDatabase(
+  state: DemoState,
+  serviceId: string,
+  dbId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const existingDbs = service.databases || [];
+  const target = existingDbs.find((d) => d.id === dbId);
+  if (!target) throw new Error(`Database not found.`);
+
+  const now = new Date().toISOString();
+  const updatedService: Service = {
+    ...service,
+    databases: existingDbs.filter((d) => d.id !== dbId),
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'database',
+        message: `Database dropped: ${target.name}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function createServiceDatabaseUser(
+  state: DemoState,
+  serviceId: string,
+  username: string,
+  privileges: string[] = ['ALL PRIVILEGES']
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanUser = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!cleanUser) throw new Error('Database username cannot be empty.');
+
+  const existingUsers = service.databaseUsers || [];
+  if (existingUsers.some((u) => u.username.toLowerCase() === cleanUser.toLowerCase())) {
+    throw new Error(`Database user "${cleanUser}" already exists.`);
+  }
+
+  const now = new Date().toISOString();
+  const newUser: ServiceDatabaseUser = {
+    id: createId('dbu'),
+    username: cleanUser,
+    host: 'localhost',
+    privileges: privileges.length > 0 ? privileges : ['ALL PRIVILEGES'],
+  };
+
+  const updatedService: Service = {
+    ...service,
+    databaseUsers: [...existingUsers, newUser],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'database',
+        message: `Database user created: ${cleanUser}@localhost`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceDatabaseUser(
+  state: DemoState,
+  serviceId: string,
+  userId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const existingUsers = service.databaseUsers || [];
+  const target = existingUsers.find((u) => u.id === userId);
+  if (!target) throw new Error(`Database user not found.`);
+
+  const now = new Date().toISOString();
+  const updatedService: Service = {
+    ...service,
+    databaseUsers: existingUsers.filter((u) => u.id !== userId),
+    databases: (service.databases || []).map((db) => ({
+      ...db,
+      users: db.users.filter((u) => u !== target.username),
+    })),
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'database',
+        message: `Database user deleted: ${target.username}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// Email Workflows
+export function createServiceEmailAccount(
+  state: DemoState,
+  serviceId: string,
+  address: string,
+  quotaMB: number
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanAddr = address.trim().toLowerCase();
+  if (!cleanAddr.includes('@')) throw new Error('Invalid email address.');
+
+  const existingAccounts = service.emailAccounts || [];
+  const maxAccounts = service.planLimits?.emailAccounts || 5;
+  if (existingAccounts.length >= maxAccounts) {
+    throw new Error(`Email account limit reached (${existingAccounts.length}/${maxAccounts}). Upgrade plan to add more mailboxes.`);
+  }
+
+  if (existingAccounts.some((a) => a.address.toLowerCase() === cleanAddr)) {
+    throw new Error(`Email account "${cleanAddr}" already exists.`);
+  }
+
+  const now = new Date().toISOString();
+  const newAccount: ServiceEmailAccount = {
+    id: createId('em'),
+    address: cleanAddr,
+    quotaMB: quotaMB || 1024,
+    usedMB: 0,
+    status: 'active',
+    createdAt: now,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    emailAccounts: [...existingAccounts, newAccount],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'mail',
+        message: `Mailbox provisioned: ${cleanAddr} (Quota: ${quotaMB || 1024} MB)`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceEmailAccount(
+  state: DemoState,
+  serviceId: string,
+  accountId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const existing = service.emailAccounts || [];
+  const target = existing.find((a) => a.id === accountId);
+  if (!target) throw new Error(`Email account not found.`);
+
+  const now = new Date().toISOString();
+  const updatedService: Service = {
+    ...service,
+    emailAccounts: existing.filter((a) => a.id !== accountId),
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'mail',
+        message: `Mailbox deleted: ${target.address}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function createServiceEmailForwarder(
+  state: DemoState,
+  serviceId: string,
+  source: string,
+  destination: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanSrc = source.trim().toLowerCase();
+  const cleanDst = destination.trim().toLowerCase();
+
+  if (!cleanSrc.includes('@') || !cleanDst.includes('@')) {
+    throw new Error('Both source and destination must be valid email addresses.');
+  }
+
+  const existing = service.emailForwarders || [];
+  if (existing.some((f) => f.source === cleanSrc && f.destination === cleanDst)) {
+    throw new Error(`Forwarder from ${cleanSrc} to ${cleanDst} already exists.`);
+  }
+
+  const now = new Date().toISOString();
+  const newFwd: ServiceEmailForwarder = {
+    id: createId('ef'),
+    source: cleanSrc,
+    destination: cleanDst,
+    createdAt: now,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    emailForwarders: [...existing, newFwd],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'mail',
+        message: `Email forwarder configured: ${cleanSrc} -> ${cleanDst}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceEmailForwarder(
+  state: DemoState,
+  serviceId: string,
+  forwarderId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const existing = service.emailForwarders || [];
+  const target = existing.find((f) => f.id === forwarderId);
+  if (!target) throw new Error('Forwarder not found.');
+
+  const now = new Date().toISOString();
+  const updatedService: Service = {
+    ...service,
+    emailForwarders: existing.filter((f) => f.id !== forwarderId),
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'mail',
+        message: `Email forwarder deleted: ${target.source} -> ${target.destination}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// SSL Workflows
+export function renewServiceSslCertificate(
+  state: DemoState,
+  serviceId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const expiryDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+  const domain = service.domain || 'example.com';
+
+  const updatedSsl: ServiceSslCertificate = {
+    status: 'active',
+    issuer: "Let's Encrypt Authority X3",
+    coveredDomains: [domain, `www.${domain}`],
+    issueDate: nowIso,
+    expiryDate,
+    autoRenew: true,
+    forceHttps: service.sslCertificate?.forceHttps ?? true,
+    hsts: service.sslCertificate?.hsts ?? true,
+    minTlsVersion: service.sslCertificate?.minTlsVersion ?? '1.3',
+    lastOperationLog: 'Certificate successfully verified and issued via simulated ACME challenge.',
+  };
+
+  const updatedService: Service = {
+    ...service,
+    sslCertificate: updatedSsl,
+    timeline: [
+      {
+        id: createId('tl'),
+        event: 'SSL Certificate Renewed',
+        description: `New certificate issued by Let's Encrypt, valid until ${expiryDate.slice(0, 10)}`,
+        timestamp: nowIso,
+      },
+      ...service.timeline,
+    ],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: nowIso,
+        severity: 'info',
+        category: 'web',
+        message: `TLS certificate renewed successfully for ${domain}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function toggleServiceHttpsRedirect(
+  state: DemoState,
+  serviceId: string,
+  forceHttps: boolean
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const now = new Date().toISOString();
+  const ssl = service.sslCertificate || createDefaultSsl(service.domain || 'example.com');
+  const updatedSsl: ServiceSslCertificate = { ...ssl, forceHttps };
+
+  const updatedService: Service = {
+    ...service,
+    sslCertificate: updatedSsl,
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `HTTP to HTTPS automatic redirect ${forceHttps ? 'enabled' : 'disabled'}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// Backup Workflows
+export function createServiceBackup(
+  state: DemoState,
+  serviceId: string,
+  scope: 'full' | 'database' | 'files' = 'full'
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const domain = service.domain || 'service';
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const dateStr = now.toISOString().slice(0, 10);
+  const size = scope === 'full' ? 342 : scope === 'database' ? 38 : 304;
+
+  const newBackup: ServiceBackup = {
+    id: createId('bk'),
+    filename: `backup-${domain}-${scope}-${dateStr}.tar.gz`,
+    sizeMB: size,
+    type: 'manual',
+    scope,
+    status: 'completed',
+    createdAt: nowIso,
+    retentionDays: 30,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    backups: [newBackup, ...(service.backups || [])],
+    timeline: [
+      {
+        id: createId('tl'),
+        event: 'Manual Backup Created',
+        description: `Snapshot ${newBackup.filename} (${size} MB) stored`,
+        timestamp: nowIso,
+      },
+      ...service.timeline,
+    ],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: nowIso,
+        severity: 'info',
+        category: 'system',
+        message: `Backup ${newBackup.filename} created successfully`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function restoreServiceBackup(
+  state: DemoState,
+  serviceId: string,
+  backupId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const target = (service.backups || []).find((b) => b.id === backupId);
+  if (!target) throw new Error(`Backup not found.`);
+
+  const now = new Date().toISOString();
+  const updatedService: Service = {
+    ...service,
+    timeline: [
+      {
+        id: createId('tl'),
+        event: 'Backup Restored',
+        description: `Restored service snapshot ${target.filename}`,
+        timestamp: now,
+      },
+      ...service.timeline,
+    ],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'system',
+        message: `Restore point ${target.filename} applied to active service environment`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceBackup(
+  state: DemoState,
+  serviceId: string,
+  backupId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const now = new Date().toISOString();
+  const updatedService: Service = {
+    ...service,
+    backups: (service.backups || []).filter((b) => b.id !== backupId),
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'system',
+        message: `Backup snapshot deleted`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// VPS Compute Workflows
+export function setServiceVpsPowerState(
+  state: DemoState,
+  serviceId: string,
+  powerState: 'running' | 'stopped' | 'restarting'
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const vps = service.vpsData || createDefaultVpsData(service.domain || 'vps.host', service.ipAddress || '198.51.100.80');
+  const now = new Date().toISOString();
+
+  const updatedVps: ServiceVpsData = {
+    ...vps,
+    powerState,
+    uptimeSeconds: powerState === 'running' ? (vps.powerState === 'running' ? vps.uptimeSeconds : 60) : 0,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    vpsData: updatedVps,
+    timeline: [
+      {
+        id: createId('tl'),
+        event: `Server ${powerState.toUpperCase()}`,
+        description: `Hypervisor state transition executed: ${powerState}`,
+        timestamp: now,
+      },
+      ...service.timeline,
+    ],
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: powerState === 'stopped' ? 'warning' : 'info',
+        category: 'system',
+        message: `Virtual machine power state changed to: ${powerState}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function addServiceVpsSshKey(
+  state: DemoState,
+  serviceId: string,
+  name: string,
+  publicKey: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanKey = publicKey.trim();
+  if (!cleanKey.startsWith('ssh-rsa') && !cleanKey.startsWith('ssh-ed25519')) {
+    throw new Error('Invalid public key format. Must begin with ssh-rsa or ssh-ed25519.');
+  }
+
+  const vps = service.vpsData || createDefaultVpsData(service.domain || 'vps.host', service.ipAddress || '198.51.100.80');
+  const now = new Date().toISOString();
+
+  const newKey = {
+    id: createId('ssh'),
+    name: name.trim() || 'Workstation Key',
+    publicKey: cleanKey,
+    createdAt: now,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    vpsData: {
+      ...vps,
+      sshKeys: [...vps.sshKeys, newKey],
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'auth',
+        message: `Authorized SSH public key registered: "${newKey.name}"`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceVpsSshKey(
+  state: DemoState,
+  serviceId: string,
+  keyId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const vps = service.vpsData || createDefaultVpsData(service.domain || 'vps.host', service.ipAddress || '198.51.100.80');
+  const now = new Date().toISOString();
+
+  const updatedService: Service = {
+    ...service,
+    vpsData: {
+      ...vps,
+      sshKeys: vps.sshKeys.filter((k) => k.id !== keyId),
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'auth',
+        message: `Authorized SSH public key removed`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function addServiceVpsFirewallRule(
+  state: DemoState,
+  serviceId: string,
+  rule: {
+    portRange: string;
+    protocol: 'TCP' | 'UDP' | 'TCP/UDP';
+    source: string;
+    action: 'ALLOW' | 'DENY';
+    description: string;
+  }
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const vps = service.vpsData || createDefaultVpsData(service.domain || 'vps.host', service.ipAddress || '198.51.100.80');
+  const now = new Date().toISOString();
+
+  const newRule = {
+    id: createId('fr'),
+    ...rule,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    vpsData: {
+      ...vps,
+      firewallRules: [...vps.firewallRules, newRule],
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'system',
+        message: `Firewall filter rule added: ${rule.action} ${rule.protocol} port ${rule.portRange} from ${rule.source}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceVpsFirewallRule(
+  state: DemoState,
+  serviceId: string,
+  ruleId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const vps = service.vpsData || createDefaultVpsData(service.domain || 'vps.host', service.ipAddress || '198.51.100.80');
+  const now = new Date().toISOString();
+
+  const updatedService: Service = {
+    ...service,
+    vpsData: {
+      ...vps,
+      firewallRules: vps.firewallRules.filter((r) => r.id !== ruleId),
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'system',
+        message: `Firewall filter rule removed`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// Developer Tools Workflows
+export function triggerServiceDeployment(
+  state: DemoState,
+  serviceId: string,
+  commitMsg: string = 'Automated deployment via web control center'
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const dev = service.devData || createDefaultDevData(service.domain || 'service');
+  const now = new Date().toISOString();
+  const hash = Math.random().toString(16).substring(2, 9);
+
+  const newDep = {
+    id: createId('dep'),
+    commitHash: hash,
+    message: commitMsg,
+    branch: dev.gitRepo?.branch || 'main',
+    status: 'success' as const,
+    timestamp: now,
+    durationSec: 18,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    devData: {
+      ...dev,
+      deployments: [newDep, ...dev.deployments],
+      gitRepo: dev.gitRepo ? { ...dev.gitRepo, lastCommit: hash } : undefined,
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `Deployment ${hash} completed successfully in 18s`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function rollbackServiceDeployment(
+  state: DemoState,
+  serviceId: string,
+  deploymentId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const dev = service.devData || createDefaultDevData(service.domain || 'service');
+  const target = dev.deployments.find((d) => d.id === deploymentId);
+  if (!target) throw new Error('Deployment not found.');
+
+  const now = new Date().toISOString();
+  const rollbackDep = {
+    id: createId('dep'),
+    commitHash: target.commitHash,
+    message: `Rollback to commit ${target.commitHash}`,
+    branch: target.branch,
+    status: 'success' as const,
+    timestamp: now,
+    durationSec: 12,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    devData: {
+      ...dev,
+      deployments: [rollbackDep, ...dev.deployments],
+      gitRepo: dev.gitRepo ? { ...dev.gitRepo, lastCommit: target.commitHash } : undefined,
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `Rolled back to release commit ${target.commitHash}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function addServiceEnvVar(
+  state: DemoState,
+  serviceId: string,
+  key: string,
+  value: string,
+  masked: boolean = true
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanKey = key.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+  if (!cleanKey) throw new Error('Environment variable name must be uppercase alphanumeric.');
+
+  const dev = service.devData || createDefaultDevData(service.domain || 'service');
+  const now = new Date().toISOString();
+
+  const newVar = {
+    id: createId('ev'),
+    key: cleanKey,
+    value,
+    masked,
+  };
+
+  const updatedService: Service = {
+    ...service,
+    devData: {
+      ...dev,
+      envVars: [...dev.envVars.filter((v) => v.key !== cleanKey), newVar],
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `Environment variable configured: ${cleanKey}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+export function deleteServiceEnvVar(
+  state: DemoState,
+  serviceId: string,
+  envVarId: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const dev = service.devData || createDefaultDevData(service.domain || 'service');
+  const now = new Date().toISOString();
+
+  const updatedService: Service = {
+    ...service,
+    devData: {
+      ...dev,
+      envVars: dev.envVars.filter((v) => v.id !== envVarId),
+    },
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'web',
+        message: `Environment variable removed`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
+  };
+}
+
+// Reseller Product Capability Configuration Workflows
+export function updateProductCapabilitiesAndLimits(
+  state: DemoState,
+  productId: string,
+  capabilities: CapabilityId[],
+  planLimits?: PlanLimits
+): DemoState {
+  const product = state.products.find((p) => p.id === productId);
+  if (!product) throw new Error(`Product ${productId} not found.`);
+
+  const updatedProduct: Product = {
+    ...product,
+    capabilities,
+    planLimits: planLimits || product.planLimits,
+  };
+
+  // Coherently propagate capability and limit updates to existing services linked to this product!
+  const updatedServices = state.services.map((s) => {
+    if (s.productId === productId) {
+      return {
+        ...s,
+        capabilities,
+        planLimits: planLimits || s.planLimits,
+      };
+    }
+    return s;
+  });
+
+  return {
+    ...state,
+    products: state.products.map((p) => (p.id === productId ? updatedProduct : p)),
+    services: updatedServices,
+  };
+}
+
+export function updateServiceHostname(
+  state: DemoState,
+  serviceId: string,
+  hostname: string
+): DemoState {
+  const service = state.services.find((s) => s.id === serviceId);
+  if (!service) throw new Error(`Service ${serviceId} not found.`);
+
+  const cleanHost = hostname.trim().toLowerCase();
+  const now = new Date().toISOString();
+
+  const updatedService: Service = {
+    ...service,
+    serverHostname: cleanHost,
+    logs: [
+      {
+        id: createId('lg'),
+        timestamp: now,
+        severity: 'info',
+        category: 'system',
+        message: `Server hostname updated to ${cleanHost}`,
+      },
+      ...(service.logs || []),
+    ],
+  };
+
+  return {
+    ...state,
+    services: state.services.map((s) => (s.id === serviceId ? updatedService : s)),
   };
 }
 

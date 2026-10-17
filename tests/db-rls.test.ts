@@ -44,7 +44,7 @@ const TENANT_OWNED_TABLES = [
   'audit_events',
 ];
 
-describe('PostgreSQL Multi-Tenant Row-Level Security (RLS) Integration Suite', () => {
+describe('PostgreSQL Multi-Tenant Row-Level Security (RLS) Integration Suite', { skip: process.env.SKIP_DB_TESTS === '1' ? 'Skipping DB integration tests due to SKIP_DB_TESTS=1' : false }, () => {
   let adminPrisma: PrismaClient;
   let appPrisma: PrismaClient;
   let appPgPool: pg.Pool;

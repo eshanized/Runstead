@@ -7,13 +7,14 @@ import { seedData } from './seed-data';
 
 import { migrateStorefrontConfig } from './storefront-presets';
 
-export const CURRENT_STORAGE_VERSION = 'runstead_demo_v3';
+export const CURRENT_STORAGE_VERSION = 'runstead_demo_v4';
 export const LEGACY_STORAGE_KEYS = [
   'hostpilot_demo_v1',
   'hostpilot_demo_v2',
   'hostpilot_demo_v3',
   'runstead_demo_v1',
   'runstead_demo_v2',
+  'runstead_demo_v3',
 ];
 
 // Zod schemas for runtime schema-backed storage verification
@@ -33,7 +34,7 @@ const customerSchema = z.object({
   lastActivity: z.string(),
   activity: z.array(z.any()),
   archived: z.boolean().optional(),
-});
+}).passthrough();
 
 const productSchema = z.object({
   id: z.string(),
@@ -45,7 +46,7 @@ const productSchema = z.object({
   resourceLimits: z.array(z.object({ label: z.string(), value: z.string() })),
   available: z.boolean(),
   addons: z.array(z.any()),
-});
+}).passthrough();
 
 const orderSchema = z.object({
   id: z.string(),
@@ -60,7 +61,7 @@ const orderSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   events: z.array(z.any()),
-});
+}).passthrough();
 
 const serviceSchema = z.object({
   id: z.string(),
@@ -78,7 +79,7 @@ const serviceSchema = z.object({
   price: z.number(),
   resourceUsage: z.array(z.any()),
   timeline: z.array(z.any()),
-});
+}).passthrough();
 
 const domainSchema = z.object({
   id: z.string(),
@@ -174,7 +175,7 @@ export function validateStoredDemoState(data: unknown): DemoState | null {
 
 interface DemoContextValue {
   state: DemoState;
-  setState: (updater: (prev: DemoState) => DemoState) => void;
+  setState: (updater: ((prev: DemoState) => DemoState) | DemoState) => void;
   resetDemo: () => void;
   isHydrated: boolean;
 }
@@ -244,8 +245,8 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
     }
   }, [state, isHydrated]);
 
-  const setState = useCallback((updater: (prev: DemoState) => DemoState) => {
-    setStateInternal((prev) => updater(prev));
+  const setState = useCallback((updater: ((prev: DemoState) => DemoState) | DemoState) => {
+    setStateInternal((prev) => (typeof updater === 'function' ? (updater as (prev: DemoState) => DemoState)(prev) : updater));
   }, []);
 
   const resetDemo = useCallback(() => {

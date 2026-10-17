@@ -27,16 +27,245 @@ export interface Customer {
   archived?: boolean;
 }
 
+export type CapabilityId =
+  | 'file_manager'
+  | 'databases'
+  | 'domain_management'
+  | 'dns_zone'
+  | 'email_accounts'
+  | 'ssl_certificates'
+  | 'backups'
+  | 'vps_power'
+  | 'vps_firewall'
+  | 'ssh_access'
+  | 'developer_tools'
+  | 'activity_monitoring'
+  | 'staging_environment';
+
+export interface CapabilityDefinition {
+  id: CapabilityId;
+  name: string;
+  description: string;
+  category: 'core' | 'storage' | 'network' | 'security' | 'compute' | 'development';
+  supportedTypes: ProductType[];
+  defaultEnabled: boolean;
+  dependencies: CapabilityId[];
+}
+
+export interface PlanLimits {
+  diskSpaceGB?: number;
+  storageGB?: number;
+  bandwidthGB?: number;
+  databases?: number;
+  emailAccounts?: number;
+  domains?: number;
+  subdomains?: number;
+  backups?: number;
+  cronJobs?: number;
+  stagingEnvironments?: number;
+  sshAccess?: boolean;
+}
+
+export interface ServiceFile {
+  path: string;
+  name: string;
+  isDir: boolean;
+  isDirectory?: boolean;
+  size: number;
+  modifiedAt: string;
+  permissions: string;
+  content?: string;
+}
+
+export interface ServiceFileSystem {
+  files: ServiceFile[];
+}
+
+export interface ServiceDbTable {
+  name: string;
+  rowCount: number;
+  sizeKB: number;
+  columns: string[];
+  sampleRows: Record<string, any>[];
+}
+
+export interface ServiceDatabase {
+  id: string;
+  name: string;
+  sizeMB: number;
+  collation: string;
+  charset: string;
+  users: string[];
+  tables: ServiceDbTable[];
+  createdAt: string;
+}
+
+export interface ServiceDatabaseUser {
+  id: string;
+  username: string;
+  host: string;
+  privileges: string[];
+}
+
+export interface ServiceEmailAccount {
+  id: string;
+  address: string;
+  quotaMB: number;
+  usedMB: number;
+  status: 'active' | 'suspended';
+  createdAt: string;
+}
+
+export interface ServiceEmailForwarder {
+  id: string;
+  source: string;
+  destination: string;
+  createdAt: string;
+}
+
+export interface ServiceEmailLog {
+  id: string;
+  timestamp: string;
+  sender: string;
+  recipient: string;
+  subject: string;
+  status: 'delivered' | 'bounced' | 'queued';
+}
+
+export interface ServiceSslCertificate {
+  status: 'active' | 'renewing' | 'expired' | 'missing';
+  issuer: string;
+  coveredDomains: string[];
+  issueDate: string;
+  expiryDate: string;
+  autoRenew: boolean;
+  forceHttps: boolean;
+  hsts: boolean;
+  minTlsVersion: '1.2' | '1.3';
+  lastOperationLog?: string;
+}
+
+export interface ServiceBackup {
+  id: string;
+  filename: string;
+  sizeMB: number;
+  type: 'automated' | 'manual';
+  scope: 'full' | 'database' | 'files';
+  status: 'completed' | 'restoring' | 'failed';
+  createdAt: string;
+  retentionDays: number;
+}
+
+export interface ServiceVpsSshKey {
+  id: string;
+  name: string;
+  publicKey: string;
+  createdAt: string;
+}
+
+export interface ServiceVpsFirewallRule {
+  id: string;
+  portRange: string;
+  protocol: 'TCP' | 'UDP' | 'TCP/UDP';
+  source: string;
+  action: 'ALLOW' | 'DENY';
+  description: string;
+}
+
+export interface ServiceVpsSnapshot {
+  id: string;
+  name: string;
+  sizeGB: number;
+  createdAt: string;
+}
+
+export interface ServiceVpsData {
+  powerState: 'running' | 'stopped' | 'restarting' | 'error';
+  osName: string;
+  osVersion: string;
+  kernel: string;
+  uptimeSeconds: number;
+  ipAddress: string;
+  reverseDns: string;
+  sshKeys: ServiceVpsSshKey[];
+  firewallRules: ServiceVpsFirewallRule[];
+  snapshots: ServiceVpsSnapshot[];
+  rescueMode: boolean;
+  os?: string;
+  cpuCores?: number;
+  memoryGB?: number;
+  storageGB?: number;
+}
+
+export interface ServiceGitRepo {
+  url: string;
+  branch: string;
+  autoDeploy: boolean;
+  lastCommit: string;
+}
+
+export interface ServiceDeployment {
+  id: string;
+  commitHash: string;
+  message: string;
+  branch: string;
+  status: 'success' | 'failed' | 'deploying';
+  timestamp: string;
+  durationSec: number;
+}
+
+export interface ServiceEnvVar {
+  id: string;
+  key: string;
+  value: string;
+  masked: boolean;
+}
+
+export interface ServiceCronJob {
+  id: string;
+  schedule: string;
+  command: string;
+  description: string;
+  enabled: boolean;
+  lastRun?: string;
+}
+
+export interface ServiceDeveloperData {
+  gitRepo?: ServiceGitRepo;
+  deployments: ServiceDeployment[];
+  envVars: ServiceEnvVar[];
+  runtimeVersion: string;
+  extensions: string[];
+  cronJobs: ServiceCronJob[];
+  stagingEnvironment?: {
+    active: boolean;
+    url: string;
+    lastSynced: string;
+  };
+}
+
+export interface ServiceLog {
+  id: string;
+  timestamp: string;
+  severity: 'info' | 'warning' | 'error';
+  category: 'system' | 'web' | 'auth' | 'database' | 'mail';
+  message: string;
+  details?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   type: ProductType;
   description: string;
   pricing: { cycle: BillingCycle; price: number }[];
+  priceMonthly?: number;
   setupFee: number;
   resourceLimits: { label: string; value: string }[];
   available: boolean;
   addons: { name: string; price: number }[];
+  capabilities?: CapabilityId[];
+  planLimits?: PlanLimits;
 }
 
 export interface Order {
@@ -71,7 +300,7 @@ export interface Service {
   nextRenewalDate: string;
   billingCycle: BillingCycle;
   price: number;
-  resourceUsage: { label: string; used: number; total: number; unit: string }[];
+  resourceUsage: { label: string; used: number; total: number; unit: string; type?: string }[];
   timeline: { id: string; event: string; description: string; timestamp: string }[];
   orderId?: string;
   invoiceId?: string;
@@ -79,6 +308,22 @@ export interface Service {
   serverHostname?: string;
   username?: string;
   provisioningError?: string | null;
+  // Service Control Center properties
+  capabilities?: CapabilityId[];
+  planLimits?: PlanLimits;
+  fileSystem?: ServiceFileSystem;
+  databases?: ServiceDatabase[];
+  databaseUsers?: ServiceDatabaseUser[];
+  emailAccounts?: ServiceEmailAccount[];
+  emailForwarders?: ServiceEmailForwarder[];
+  emailLogs?: ServiceEmailLog[];
+  sslCertificate?: ServiceSslCertificate;
+  backups?: ServiceBackup[];
+  vpsData?: ServiceVpsData;
+  devData?: ServiceDeveloperData;
+  logs?: ServiceLog[];
+  phpVersion?: string;
+  nodeVersion?: string;
 }
 
 export interface Domain {

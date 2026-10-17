@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Package, ShoppingCart, Server, Globe,
   Network, FileText, LifeBuoy, BarChart3, Store, Plug, Settings,
   Rocket, Menu, Bell, Search, RotateCcw, LogOut, ExternalLink,
-  Shield, Check, CheckCheck, Trash2
+  Shield, Check, CheckCheck, Trash2, Compass
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import { demoNav } from '@/lib/config/navigation';
 import { cn } from '@/lib/utils';
 import { relativeTime } from '@/lib/demo/selectors';
 import { GlobalSearchDialog } from './demo-search';
+import { DemoTourGuideDialog } from './demo-tour-guide';
 import { toast } from 'sonner';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -189,6 +190,7 @@ function DemoTopbar() {
   const { state, resetDemo } = useDemo();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   // Compute initials from business name
   const businessInitials = state.business.businessName
@@ -237,10 +239,16 @@ function DemoTopbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="hidden sm:flex gap-1.5 border-accent/30 text-accent">
-            <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
-            DEMO MODE
-          </Badge>
+          {/* Interactive Simulation Explorer button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTourOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-50/70 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-2xs"
+          >
+            <Compass className="h-3.5 w-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Simulation Guide</span>
+          </Button>
 
           <NotificationsDropdown />
 
@@ -281,6 +289,9 @@ function DemoTopbar() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setTourOpen(true)}>
+                <Compass className="mr-2 h-4 w-4 text-indigo-600" /> Simulation Guide & Scenarios
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={resetDemo}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Reset demo data
               </DropdownMenuItem>
@@ -302,6 +313,9 @@ function DemoTopbar() {
 
       {/* Global Search Dialog Modal */}
       <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+
+      {/* Product Simulation Explorer Tour Guide */}
+      <DemoTourGuideDialog open={tourOpen} onOpenChange={setTourOpen} />
     </>
   );
 }

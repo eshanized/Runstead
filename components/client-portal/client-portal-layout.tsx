@@ -16,10 +16,12 @@ import {
   ShieldAlert,
   ArrowLeft,
   Users,
+  Compass,
 } from 'lucide-react';
 import { useDemo } from '@/lib/demo/store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DemoTourGuideDialog } from '@/components/demo/demo-tour-guide';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +39,7 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { state, setState } = useDemo();
+  const [tourOpen, setTourOpen] = useState(false);
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
@@ -76,6 +79,17 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Simulation Guide Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setTourOpen(true)}
+              className="h-6 text-[11px] bg-indigo-600/80 border-indigo-400/60 text-white hover:bg-indigo-600 font-semibold"
+            >
+              <Compass className="h-3 w-3 mr-1 text-indigo-200" />
+              Simulation Guide
+            </Button>
+
             {/* Quick Switch Demo Account */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -247,6 +261,9 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
           </div>
         </div>
       </footer>
+
+      {/* Product Simulation Explorer Tour Guide */}
+      <DemoTourGuideDialog open={tourOpen} onOpenChange={setTourOpen} />
     </div>
   );
 }
