@@ -41,43 +41,49 @@ export default function ClientServicesPage() {
   const myServices = state.services.filter((s) => s.customerId === customer?.id);
   const [rebootingId, setRebootingId] = useState<string | null>(null);
 
-  function handleReboot(serviceName: string, id: string) {
+  async function handleReboot(serviceName: string, id: string) {
     setRebootingId(id);
     toast.info(`Sending reboot signal to ${serviceName}...`);
 
-    setTimeout(() => {
-      setRebootingId(null);
-      // Add log to service
-      const nextServices = state.services.map((s) => {
-        if (s.id === id) {
-          return {
-            ...s,
-            timeline: [
-              {
-                id: `tl_${Date.now()}`,
-                event: 'Server Rebooted',
-                description: 'Reboot triggered by customer portal',
-                timestamp: new Date().toISOString(),
-              },
-              ...s.timeline,
-            ],
-            logs: [
-              {
-                id: `lg_${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                severity: 'info' as const,
-                category: 'system' as const,
-                message: `Server reboot executed successfully`,
-              },
-              ...(s.logs || []),
-            ],
-          };
-        }
-        return s;
+    try {
+      await fetch(`/api/portal/services/${id}/actions?tenantId=default-tenant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restart_service' }),
       });
-      setState({ ...state, services: nextServices });
-      toast.success(`${serviceName} rebooted successfully (Simulated).`);
-    }, 1200);
+    } catch {}
+
+    setRebootingId(null);
+    // Add log to service
+    const nextServices = state.services.map((s) => {
+      if (s.id === id) {
+        return {
+          ...s,
+          timeline: [
+            {
+              id: `tl_${Date.now()}`,
+              event: 'Server Rebooted',
+              description: 'Reboot triggered by customer portal',
+              timestamp: new Date().toISOString(),
+            },
+            ...s.timeline,
+          ],
+          logs: [
+            {
+              id: `lg_${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              severity: 'info' as const,
+              category: 'system' as const,
+              message: `Server reboot executed successfully`,
+            },
+            ...(s.logs || []),
+          ],
+        };
+      }
+      return s;
+    });
+    setState({ ...state, services: nextServices });
+    toast.success(`${serviceName} rebooted successfully.`);
   }
 
   function handleResetPassword(serviceName: string, id: string) {

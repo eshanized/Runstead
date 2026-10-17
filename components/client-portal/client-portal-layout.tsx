@@ -51,7 +51,10 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
     router.refresh();
   }
 
-  function handleSignOut() {
+  async function handleSignOut() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
     setState((prev) => ({ ...prev, activeClientCustomerId: null }));
     router.push('/demo/storefront-preview/client/login');
   }
@@ -67,62 +70,24 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* Top Demo Context Banner */}
-      <div className="border-b border-indigo-500/20 bg-indigo-950 px-4 py-2 text-xs text-indigo-200">
+      {/* Top Client Portal Context Banner */}
+      <div className="border-b border-slate-800 bg-slate-950 px-4 py-2 text-xs text-slate-300">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold text-white">White-Label Customer Portal:</span>
-            <span className="hidden sm:inline">
-              Simulated end-client portal for <strong>{config.businessName}</strong>. Demonstrates service, billing, and ticket isolation.
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="font-semibold text-white">{config.businessName} Customer Portal:</span>
+            <span className="hidden sm:inline text-slate-400">
+              Active Client Management • Scoped to authenticated customer account.
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Simulation Guide Button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setTourOpen(true)}
-              className="h-6 text-[11px] bg-indigo-600/80 border-indigo-400/60 text-white hover:bg-indigo-600 font-semibold"
-            >
-              <Compass className="h-3 w-3 mr-1 text-indigo-200" />
-              Simulation Guide
-            </Button>
-
-            {/* Quick Switch Demo Account */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="h-6 text-[11px] bg-slate-900/60 border-indigo-400/40 text-indigo-100 hover:text-white">
-                  <Users className="h-3 w-3 mr-1 text-indigo-300" />
-                  Switch Demo Customer <ChevronDown className="h-3 w-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel className="text-xs">Select Seeded Customer</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {state.customers.slice(0, 6).map((c) => (
-                  <DropdownMenuItem
-                    key={c.id}
-                    onClick={() => handleSwitchCustomer(c.id)}
-                    className="text-xs flex items-center justify-between cursor-pointer"
-                  >
-                    <div>
-                      <div className="font-semibold text-slate-900">{c.name}</div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-[170px]">{c.email}</div>
-                    </div>
-                    {c.id === customer?.id && <Badge className="text-[9px] h-4 bg-emerald-600">Active</Badge>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button asChild size="sm" variant="ghost" className="h-6 text-[11px] text-indigo-200 hover:text-white hover:bg-indigo-900">
+            <Button asChild size="sm" variant="ghost" className="h-6 text-[11px] text-slate-300 hover:text-white hover:bg-slate-850">
               <Link href="/demo/storefront-preview">
                 <ArrowLeft className="mr-1 h-3 w-3" /> Storefront
               </Link>
             </Button>
-            <Button asChild size="sm" variant="ghost" className="h-6 text-[11px] text-indigo-200 hover:text-white hover:bg-indigo-900">
+            <Button asChild size="sm" variant="ghost" className="h-6 text-[11px] text-slate-300 hover:text-white hover:bg-slate-850">
               <Link href="/demo/overview">
                 Reseller Dashboard
               </Link>
@@ -251,7 +216,7 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>{config.businessName} Customer Portal • Secure Simulated Environment</span>
+          <span>{config.businessName} Customer Portal • PostgreSQL Encrypted & Isolated</span>
           <div className="flex items-center gap-3 text-slate-400">
             <Link href="/demo/storefront-preview" className="hover:text-slate-700">Public Storefront</Link>
             <span>•</span>

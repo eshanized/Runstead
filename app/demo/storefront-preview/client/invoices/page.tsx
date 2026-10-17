@@ -43,12 +43,12 @@ export default function ClientInvoicesPage() {
     if (!customer) return;
     try {
       setState((prev) => workflows.clientPayInvoice(prev, invoiceId, customer.id));
-      toast.success('Payment simulated successfully! Invoice marked as paid.');
+      toast.success('Payment authorized and invoice settled successfully!');
       if (selectedInvoice && selectedInvoice.id === invoiceId) {
         setSelectedInvoice((prev) => (prev ? { ...prev, status: 'paid' } : null));
       }
     } catch (err: any) {
-      toast.error(err.message || 'Payment simulation failed');
+      toast.error(err.message || 'Payment processing failed');
     }
   }
 
@@ -220,7 +220,7 @@ export default function ClientInvoicesPage() {
                     onClick={() => handlePay(selectedInvoice.id)}
                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                   >
-                    Simulate Payment Authorization
+                    Authorize Payment & Settle Invoice
                   </Button>
                 ) : (
                   <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50 self-center">

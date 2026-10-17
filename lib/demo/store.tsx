@@ -229,6 +229,80 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Live server sync effect: sync PostgreSQL records when authenticated
+  useEffect(() => {
+    let isMounted = true;
+
+    async function syncServerState() {
+      try {
+        const authRes = await fetch('/api/auth/me');
+        if (!authRes.ok) return;
+        const authData = await authRes.json();
+        if (!authData.user || !isMounted) return;
+
+        // Fetch reseller collections if user has tenant permissions
+        if (authData.memberships && authData.memberships.length > 0) {
+          const [custRes, prodRes] = await Promise.allSettled([
+            fetch('/api/reseller/customers'),
+            fetch('/api/reseller/products'),
+          ]);
+
+          if (custRes.status === 'fulfilled' && custRes.value.ok) {
+            const d = await custRes.value.json();
+            if (d.customers && d.customers.length > 0 && isMounted) {
+              setStateInternal((p) => ({
+                ...p,
+                customers: d.customers.map((c: any) => ({
+                  id: c.id,
+                  name: c.name,
+                  email: c.email,
+                  company: c.company || null,
+                  status: c.status || 'active',
+                  country: c.country || 'US',
+                  createdAt: c.createdAt || new Date().toISOString(),
+                  creditBalance: 0,
+                  servicesCount: c._count?.services || 0,
+                  invoicesCount: c._count?.invoices || 0,
+                  totalRevenue: 0,
+                  lastActivity: c.createdAt || new Date().toISOString(),
+                  activity: [],
+                })),
+              }));
+            }
+          }
+
+          if (prodRes.status === 'fulfilled' && prodRes.value.ok) {
+            const d = await prodRes.value.json();
+            if (d.products && d.products.length > 0 && isMounted) {
+              setStateInternal((p) => ({
+                ...p,
+                products: d.products.map((pr: any) => ({
+                  id: pr.id,
+                  name: pr.name,
+                  type: pr.type,
+                  description: pr.description || '',
+                  pricing: Array.isArray(pr.pricing) ? pr.pricing : [{ cycle: 'monthly', price: Number(pr.pricing?.monthly || 19.99) }],
+                  setupFee: Number(pr.setupFee || 0),
+                  resourceLimits: [],
+                  available: pr.available ?? true,
+                  addons: [],
+                })),
+              }));
+            }
+          }
+        }
+      } catch {
+        // Safe offline / unauthenticated handling
+      }
+    }
+
+    syncServerState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
 
   // Separate persistence effect: avoid performing side effects inside updater callbacks
   useEffect(() => {

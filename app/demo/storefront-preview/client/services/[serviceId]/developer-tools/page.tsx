@@ -62,25 +62,23 @@ export default function ServiceDeveloperToolsPage() {
     return <div className="p-8 text-center text-slate-500">Service not found.</div>;
   }
 
-  function handleTriggerDeploy() {
+  async function handleTriggerDeploy() {
     setDeploying(true);
-    toast.info('Cloning git repository & executing build pipeline...');
+    toast.info('Triggering build pipeline & edge container release...');
 
-    setTimeout(() => {
-      try {
-        const nextState = triggerServiceDeployment(
-          state,
-          service!.id,
-          'Triggered production release via Web Control Center'
-        );
-        setState(nextState);
-        toast.success('Deployed commit successfully to edge containers!');
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : 'Deployment failed');
-      } finally {
-        setDeploying(false);
-      }
-    }, 1200);
+    try {
+      const nextState = triggerServiceDeployment(
+        state,
+        service!.id,
+        'Triggered production release via Web Control Center'
+      );
+      setState(nextState);
+      toast.success('Deployed commit successfully to edge containers!');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Deployment failed');
+    } finally {
+      setDeploying(false);
+    }
   }
 
   function handleRollback(deploymentId: string) {

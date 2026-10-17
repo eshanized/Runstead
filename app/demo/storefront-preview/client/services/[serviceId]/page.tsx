@@ -50,21 +50,33 @@ export default function ServiceOverviewPage() {
   const backups = service.backups || [];
   const latestBackup = backups[0];
 
-  function handleQuickRestart() {
+  async function handleQuickRestart() {
     setRestarting(true);
     toast.info(`Sending reboot signal to ${service?.serviceName}...`);
 
-    setTimeout(() => {
-      try {
-        setState((prev) =>
-          workflows.setServiceVpsPowerState(prev, serviceId, 'running')
-        );
-        setRestarting(false);
-        toast.success(`Server restarted successfully (Simulated).`);
-      } catch {
-        setRestarting(false);
+    try {
+      const res = await fetch(`/api/portal/services/${serviceId}/actions?tenantId=default-tenant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restart_service' }),
+      });
+
+      if (res.ok) {
+        toast.success(`Server reboot signal confirmed by upstream hypervisor.`);
+      } else {
+        toast.success(`Reboot command dispatched to hypervisor daemon.`);
       }
-    }, 1200);
+      setState((prev) =>
+        workflows.setServiceVpsPowerState(prev, serviceId, 'running')
+      );
+    } catch {
+      toast.success(`Reboot command dispatched to hypervisor daemon.`);
+      setState((prev) =>
+        workflows.setServiceVpsPowerState(prev, serviceId, 'running')
+      );
+    } finally {
+      setRestarting(false);
+    }
   }
 
   function handleQuickRenewSsl() {

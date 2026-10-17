@@ -66,23 +66,21 @@ export default function ServiceBackupsPage() {
     }
   }
 
-  function handleConfirmRestore() {
+  async function handleConfirmRestore() {
     if (!restoreTarget) return;
     setRestoring(true);
     toast.info(`Initiating restore point for ${restoreTarget.filename}...`);
 
-    setTimeout(() => {
-      try {
-        const nextState = restoreServiceBackup(state, service!.id, restoreTarget.id);
-        setState(nextState);
-        toast.success(`Service restored successfully from ${restoreTarget.filename}`);
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : 'Restore failed');
-      } finally {
-        setRestoring(false);
-        setRestoreTarget(null);
-      }
-    }, 1200);
+    try {
+      const nextState = restoreServiceBackup(state, service!.id, restoreTarget.id);
+      setState(nextState);
+      toast.success(`Service restored successfully from ${restoreTarget.filename}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Restore failed');
+    } finally {
+      setRestoring(false);
+      setRestoreTarget(null);
+    }
   }
 
   function handleDeleteBackup() {

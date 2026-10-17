@@ -48,28 +48,20 @@ export default function ServiceSslPage() {
     Math.round((new Date(ssl.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   );
 
-  function handleRenew() {
+  async function handleRenew() {
     setRenewing(true);
-    setAcmeStep('Validating HTTP-01 ACME challenge at /.well-known/acme-challenge/...');
+    setAcmeStep('Authorizing domain ownership & requesting leaf certificate from Let\'s Encrypt...');
 
-    setTimeout(() => {
-      setAcmeStep('Authorizing domain ownership with Let\'s Encrypt CA...');
-      setTimeout(() => {
-        setAcmeStep('Generating 2048-bit RSA keypair & requesting leaf certificate...');
-        setTimeout(() => {
-          try {
-            const nextState = renewServiceSslCertificate(state, service!.id);
-            setState(nextState);
-            toast.success(`SSL certificate renewed successfully for ${service!.domain}!`);
-          } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : 'Renewal failed');
-          } finally {
-            setRenewing(false);
-            setAcmeStep(null);
-          }
-        }, 800);
-      }, 800);
-    }, 800);
+    try {
+      const nextState = renewServiceSslCertificate(state, service!.id);
+      setState(nextState);
+      toast.success(`SSL certificate renewed successfully for ${service!.domain}!`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Renewal failed');
+    } finally {
+      setRenewing(false);
+      setAcmeStep(null);
+    }
   }
 
   function handleToggleHttps(enabled: boolean) {

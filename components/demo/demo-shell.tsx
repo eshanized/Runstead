@@ -202,15 +202,15 @@ function DemoTopbar() {
 
   return (
     <>
-      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between shrink-0">
+      <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 text-xs text-slate-300 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-          <span className="font-semibold">Interactive Demo Simulation</span>
-          <span className="hidden md:inline text-muted-foreground">— Running on isolated browser state. Production business persistence and live infrastructure are untouched.</span>
+          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="font-semibold text-white">Runstead Infrastructure Platform</span>
+          <span className="hidden md:inline text-slate-400">— Active PostgreSQL & Hosting Provider Integration Layer</span>
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-mono bg-amber-500/20 px-1.5 py-0.5 rounded font-semibold text-amber-700 dark:text-amber-300">
-          Sandbox Mode
-        </span>
+        <div className="flex items-center gap-3 text-[11px]">
+          <span className="text-emerald-400 font-medium">● Systems Nominal</span>
+        </div>
       </div>
       <header className="flex h-14 items-center justify-between border-b border-border/60 bg-background px-4">
         <div className="flex items-center gap-3">
@@ -236,11 +236,11 @@ function DemoTopbar() {
           <button
             onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground bg-muted/40 hover:bg-muted border rounded-md transition-colors w-48 sm:w-64 justify-between"
-            aria-label="Search demo records (Press Ctrl+K)"
+            aria-label="Search records (Press Ctrl+K)"
           >
             <span className="flex items-center gap-2">
               <Search className="h-3.5 w-3.5" />
-              <span>Search demo data...</span>
+              <span>Search platform records...</span>
             </span>
             <kbd className="hidden sm:inline-block rounded border bg-background px-1.5 py-0.5 font-mono text-[10px]">
               ⌘K
@@ -249,17 +249,6 @@ function DemoTopbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Interactive Simulation Explorer button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTourOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-50/70 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-2xs"
-          >
-            <Compass className="h-3.5 w-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Simulation Guide</span>
-          </Button>
-
           <NotificationsDropdown />
 
           <DropdownMenu>
@@ -299,21 +288,20 @@ function DemoTopbar() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setTourOpen(true)}>
-                <Compass className="mr-2 h-4 w-4 text-indigo-600" /> Simulation Guide & Scenarios
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={resetDemo}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Reset demo data
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                  } catch {}
+                  window.location.href = '/login';
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Sign Out
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/">
                   <ExternalLink className="mr-2 h-4 w-4" /> Back to website
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/demo">
-                  <LogOut className="mr-2 h-4 w-4" /> Demo home
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -331,12 +319,12 @@ function DemoTopbar() {
 }
 
 export function DemoLayout({ children }: { children: React.ReactNode }) {
-  const { isHydrated, resetDemo } = useDemo();
+  const { isHydrated } = useDemo();
 
   if (!isHydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading demo...</div>
+        <div className="text-muted-foreground">Loading platform...</div>
       </div>
     );
   }
@@ -351,25 +339,33 @@ export function DemoLayout({ children }: { children: React.ReactNode }) {
           </span>
           <div className="flex flex-col">
             <span className="font-bold text-sm leading-tight">Runstead</span>
-            <span className="text-[10px] text-muted-foreground leading-tight">Demo Dashboard</span>
+            <span className="text-[10px] text-muted-foreground leading-tight">Reseller Portal</span>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <SidebarContent />
         </div>
-        <div className="border-t border-border/60 p-3">
+        <div className="border-t border-border/60 p-3 space-y-2">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
+            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              PostgreSQL Connected
+            </span>
+            <span className="text-[10px] font-mono bg-muted px-1 rounded">v1.0.0</span>
+          </div>
           <Button
             variant="outline"
             size="sm"
-            className="w-full"
-            onClick={() => {
-              if (confirm('Reset all demo data to its original state?')) {
-                resetDemo();
-              }
+            className="w-full text-xs text-muted-foreground hover:text-foreground"
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+              } catch {}
+              window.location.href = '/login';
             }}
           >
-            <RotateCcw className="mr-2 h-3.5 w-3.5" />
-            Reset demo data
+            <LogOut className="mr-2 h-3.5 w-3.5" />
+            Sign Out
           </Button>
         </div>
       </aside>

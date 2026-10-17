@@ -42,21 +42,22 @@ function IntegrationsContent() {
   const categories = Array.from(new Set(state.integrations.map((i) => i.category)));
   const filtered = getFilteredIntegrations(state.integrations, categoryFilter);
 
-  function testConnection(integration: Integration) {
+  async function testConnection(integration: Integration) {
     if (integration.status === 'unavailable') {
-      toast.error(`${integration.name} module requires an enterprise license key to activate.`);
+      toast.error(`${integration.name} module requires an active license key to activate.`);
       return;
     }
 
     setTestingId(integration.id);
-    const latency = Math.floor(20 + (integration.id.charCodeAt(3) || 10) % 35);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/health');
+      await res.json();
       setTestingId(null);
-      const newStatus: IntegrationStatus = 'connected';
+
+      const isConnected = integration.status === 'connected';
       const updated: Integration = {
         ...integration,
-        status: newStatus,
         lastTested: new Date().toISOString(),
       };
 
@@ -66,10 +67,15 @@ function IntegrationsContent() {
       }));
 
       setSelected(updated);
-      toast.success(
-        `Connection to ${integration.name} verified successfully (${latency}ms round-trip latency). Handshake verified!`
-      );
-    }, 700);
+      if (isConnected) {
+        toast.success(`Verified gateway connectivity to ${integration.name}. Health check passed.`);
+      } else {
+        toast.info(`${integration.name} is currently in standby. Provide live credentials in settings to activate.`);
+      }
+    } catch {
+      setTestingId(null);
+      toast.error(`Endpoint verification failed for ${integration.name}.`);
+    }
   }
 
   function toggleConnection(integration: Integration) {
