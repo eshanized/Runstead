@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plug, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Lock } from 'lucide-react';
+import { Plug, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Lock, ShieldCheck, Zap } from 'lucide-react';
 import { DemoShell } from '@/components/demo/demo-shell';
 import { DemoPageHeader, DemoEmptyState } from '@/components/demo/demo-helpers';
 import { useDemo } from '@/lib/demo/store';
@@ -37,52 +37,85 @@ function IntegrationsContent() {
   const { state, setState } = useDemo();
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selected, setSelected] = useState<Integration | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const categories = Array.from(new Set(state.integrations.map((i) => i.category)));
   const filtered = getFilteredIntegrations(state.integrations, categoryFilter);
 
   function testConnection(integration: Integration) {
-    const statuses: IntegrationStatus[] = integration.status === 'unavailable' ? ['unavailable'] : ['connected', 'degraded', 'disconnected'];
-    const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
-    const updated: Integration = { ...integration, status: newStatus, lastTested: new Date().toISOString() };
-    setState((prev) => ({ ...prev, integrations: prev.integrations.map((i) => i.id === integration.id ? updated : i) }));
-    setSelected(updated);
-    if (newStatus === 'connected') toast.success(`Connection to ${integration.name} successful`);
-    else if (newStatus === 'degraded') toast.warning(`Connection to ${integration.name} is degraded`);
-    else toast.error(`Connection to ${integration.name} failed`);
+    if (integration.status === 'unavailable') {
+      toast.error(`${integration.name} module requires an enterprise license key to activate.`);
+      return;
+    }
+
+    setTestingId(integration.id);
+    const latency = Math.floor(20 + (integration.id.charCodeAt(3) || 10) % 35);
+
+    setTimeout(() => {
+      setTestingId(null);
+      const newStatus: IntegrationStatus = 'connected';
+      const updated: Integration = {
+        ...integration,
+        status: newStatus,
+        lastTested: new Date().toISOString(),
+      };
+
+      setState((prev) => ({
+        ...prev,
+        integrations: prev.integrations.map((i) => (i.id === integration.id ? updated : i)),
+      }));
+
+      setSelected(updated);
+      toast.success(
+        `Connection to ${integration.name} verified successfully (${latency}ms round-trip latency). Handshake verified!`
+      );
+    }, 700);
   }
 
   function toggleConnection(integration: Integration) {
     if (integration.status === 'unavailable') {
-      toast.error(`${integration.name} is not available for connection`);
+      toast.error(`${integration.name} is not available for connection.`);
       return;
     }
     const newStatus: IntegrationStatus = integration.status === 'connected' ? 'disconnected' : 'connected';
-    const updated: Integration = { ...integration, status: newStatus, lastTested: newStatus === 'connected' ? new Date().toISOString() : integration.lastTested };
-    setState((prev) => ({ ...prev, integrations: prev.integrations.map((i) => i.id === integration.id ? updated : i) }));
+    const updated: Integration = {
+      ...integration,
+      status: newStatus,
+      lastTested: newStatus === 'connected' ? new Date().toISOString() : integration.lastTested,
+    };
+    setState((prev) => ({
+      ...prev,
+      integrations: prev.integrations.map((i) => (i.id === integration.id ? updated : i)),
+    }));
     setSelected(updated);
-    toast.success(`${integration.name} ${newStatus === 'connected' ? 'connected' : 'disconnected'}`);
+    toast.success(`${integration.name} ${newStatus === 'connected' ? 'connected and authenticated' : 'disconnected'}.`);
   }
 
   return (
     <>
       <DemoPageHeader title="Integrations" description={`${state.integrations.length} provider integrations`} />
 
-      <Alert className="mb-4">
-        <Lock className="h-4 w-4" />
-        <AlertTitle>Demo integrations</AlertTitle>
-        <AlertDescription>
-          All integration statuses are simulated. No real provider credentials are collected or stored.
-          Never enter real API keys, passwords, or private keys in this demo.
+      <Alert className="mb-4 bg-blue-50/70 border-blue-200 text-blue-900">
+        <Lock className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-950 font-bold">Simulated Provider Integrations</AlertTitle>
+        <AlertDescription className="text-blue-800 text-xs">
+          All external provider connections (Stripe, cPanel, Proxmox, AWS Route 53, SendGrid) operate in simulated mode with
+          deterministic health checks. No real credit card or cloud API credentials are ever required or stored.
         </AlertDescription>
       </Alert>
 
       <div className="mb-4">
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-64">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {categories.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -101,15 +134,31 @@ function IntegrationsContent() {
                       <h3 className="font-semibold text-sm">{int.name}</h3>
                       <p className="text-xs text-muted-foreground mt-0.5">{int.category}</p>
                     </div>
-                    <Icon className={`h-5 w-5 ${int.status === 'connected' ? 'text-success' : int.status === 'degraded' ? 'text-warning' : int.status === 'unavailable' ? 'text-muted-foreground' : 'text-muted-foreground/40'}`} />
+                    <Icon
+                      className={`h-5 w-5 ${
+                        int.status === 'connected'
+                          ? 'text-emerald-600'
+                          : int.status === 'degraded'
+                            ? 'text-amber-500'
+                            : int.status === 'unavailable'
+                              ? 'text-slate-400'
+                              : 'text-slate-300'
+                      }`}
+                    />
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{int.description}</p>
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{int.description}</p>
                   <div className="mt-3 flex flex-wrap gap-1">
-                    {int.capabilities.slice(0, 3).map((c) => <Badge key={c} variant="outline" className="text-xs">{c}</Badge>)}
+                    {int.capabilities.slice(0, 3).map((c) => (
+                      <Badge key={c} variant="outline" className="text-xs">
+                        {c}
+                      </Badge>
+                    ))}
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
+                  <div className="mt-4 flex items-center justify-between pt-3 border-t">
                     <StatusBadge status={int.status} />
-                    <Button variant="outline" size="sm" onClick={() => setSelected(int)}>Configure</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelected(int)}>
+                      Configure
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -122,41 +171,83 @@ function IntegrationsContent() {
         <Dialog open onOpenChange={() => setSelected(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{selected.name}</DialogTitle>
-              <DialogDescription>{selected.category} - {selected.description}</DialogDescription>
+              <DialogTitle className="flex items-center gap-2">
+                <Plug className="h-5 w-5 text-indigo-600" />
+                {selected.name}
+              </DialogTitle>
+              <DialogDescription>
+                {selected.category} — {selected.description}
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={selected.status} />
-                {selected.lastTested && <span className="text-xs text-muted-foreground">Last tested: {formatDateTime(selected.lastTested)}</span>}
+            <div className="space-y-4 text-xs">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">Live Status:</span>
+                  <StatusBadge status={selected.status} />
+                </div>
+                {selected.lastTested && (
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    Last tested: {formatDateTime(selected.lastTested)}
+                  </span>
+                )}
               </div>
+
               <div>
-                <h4 className="text-sm font-semibold mb-2">Capabilities</h4>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Supported Capabilities
+                </h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {selected.capabilities.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}
+                  {selected.capabilities.map((c) => (
+                    <Badge key={c} variant="secondary" className="text-xs">
+                      {c}
+                    </Badge>
+                  ))}
                 </div>
               </div>
+
               {selected.config.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Configuration</h4>
-                  <div className="space-y-3">
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    API Parameters & Simulated Credentials
+                  </h4>
+                  <div className="space-y-2.5">
                     {selected.config.map((c) => (
                       <div key={c.key} className="space-y-1">
-                        <Label className="text-xs">{c.label}</Label>
-                        <Input value={c.value} readOnly type={c.masked ? 'password' : 'text'} placeholder="Demo only - do not enter real credentials" />
+                        <Label className="text-xs text-slate-600">{c.label}</Label>
+                        <Input
+                          value={c.value}
+                          readOnly
+                          type={c.masked ? 'password' : 'text'}
+                          className="font-mono text-xs bg-slate-50"
+                        />
                       </div>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">This is a demo. Do not enter real API keys or passwords.</p>
                 </div>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => testConnection(selected)}><RefreshCw className="mr-2 h-4 w-4" /> Test Connection</Button>
-              <Button onClick={() => toggleConnection(selected)} disabled={selected.status === 'unavailable'}>
+
+            <DialogFooter className="flex-wrap gap-2 pt-3 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={testingId === selected.id}
+                onClick={() => testConnection(selected)}
+              >
+                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${testingId === selected.id ? 'animate-spin' : ''}`} />
+                {testingId === selected.id ? 'Testing...' : 'Test Handshake'}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => toggleConnection(selected)}
+                disabled={selected.status === 'unavailable'}
+                className={selected.status === 'connected' ? 'bg-slate-700' : 'bg-blue-600'}
+              >
                 {selected.status === 'connected' ? 'Disconnect' : 'Connect'}
               </Button>
-              <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
+              <Button variant="outline" size="sm" onClick={() => setSelected(null)}>
+                Close
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

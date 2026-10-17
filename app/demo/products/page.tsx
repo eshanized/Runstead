@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, Plus, Package, Pencil, Eye, Archive } from 'lucide-react';
+import { Search, Plus, Package, Pencil, Eye, Archive, ShieldCheck, Check, Layers, HardDrive } from 'lucide-react';
 import { DemoShell } from '@/components/demo/demo-shell';
 import { DemoPageHeader, DemoEmptyState } from '@/components/demo/demo-helpers';
 import { useDemo, generateId } from '@/lib/demo/store';
 import * as workflows from '@/lib/demo/workflows';
 import { searchProducts, filterProductsByType, formatCurrency } from '@/lib/demo/selectors';
-import type { Product, ProductType, BillingCycle } from '@/lib/demo/types';
+import type { Product, ProductType, BillingCycle, CapabilityId, PlanLimits } from '@/lib/demo/types';
+import { CAPABILITY_REGISTRY } from '@/lib/demo/capabilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,18 @@ const typeLabels: Record<ProductType, string> = {
   managed_service: 'Managed Service',
   add_on: 'Add-on',
 };
+
+const ALL_CAPABILITIES: { id: CapabilityId; label: string }[] = [
+  { id: 'file_manager', label: 'File Manager' },
+  { id: 'databases', label: 'Databases (MySQL)' },
+  { id: 'email_accounts', label: 'Email Accounts' },
+  { id: 'backups', label: 'Backups & Snapshots' },
+  { id: 'ssl_certificates', label: 'SSL Certificates' },
+  { id: 'vps_power', label: 'VPS Hypervisor Power' },
+  { id: 'developer_tools', label: 'Git & Developer Tools' },
+  { id: 'domain_management', label: 'Domains & DNS' },
+  { id: 'activity_monitoring', label: 'Telemetry & Logs' },
+];
 
 export default function ProductsPage() {
   return (
@@ -51,9 +64,20 @@ function ProductsContent() {
 
   function handleSave(product: Product) {
     try {
-      setState((prev) => workflows.updateProduct(prev, product.id, product));
+      setState((prev) => {
+        let next = workflows.updateProduct(prev, product.id, product);
+        if (product.capabilities) {
+          next = workflows.updateProductCapabilitiesAndLimits(
+            next,
+            product.id,
+            product.capabilities,
+            product.planLimits
+          );
+        }
+        return next;
+      });
       setEditProduct(null);
-      toast.success(`Product ${product.name} updated`);
+      toast.success(`Product ${product.name} updated and propagated to linked customer services.`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to update product');
     }
@@ -91,9 +115,13 @@ function ProductsContent() {
   return (
     <>
       <DemoPageHeader
-        title="Products"
-        description={`${state.products.length} products in catalog`}
-        actions={<Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Add Product</Button>}
+        title="Products & Hosting Packages"
+        description={`${state.products.length} catalog offerings with capability limits`}
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Product
+          </Button>
+        }
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
@@ -124,7 +152,7 @@ function ProductsContent() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold">{p.name}</h3>
+                    <h3 className="font-semibold text-base">{p.name}</h3>
                     <Badge variant="secondary" className="mt-1">{typeLabels[p.type]}</Badge>
                   </div>
                   <Switch
@@ -134,8 +162,8 @@ function ProductsContent() {
                   />
                 </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{p.description}</p>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
                 <div className="space-y-1">
                   {p.pricing.map((pr) => (
                     <div key={pr.cycle} className="flex justify-between text-sm">
@@ -144,8 +172,29 @@ function ProductsContent() {
                     </div>
                   ))}
                 </div>
-                {p.setupFee > 0 && <div className="mt-2 text-xs text-muted-foreground">Setup fee: {formatCurrency(p.setupFee, state.business.currency)}</div>}
-                <div className="mt-3 flex items-center justify-between pt-2 border-t">
+
+                {/* Capabilities Badges */}
+                <div className="space-y-1 pt-1">
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Client Capabilities
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(p.capabilities || ['file_manager', 'databases']).slice(0, 4).map((cap) => (
+                      <Badge key={cap} variant="outline" className="text-[10px] bg-slate-50">
+                        {cap.replace(/_/g, ' ')}
+                      </Badge>
+                    ))}
+                    {(p.capabilities?.length || 0) > 4 && (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        +{(p.capabilities?.length || 0) - 4} more
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {p.setupFee > 0 && <div className="text-xs text-muted-foreground">Setup fee: {formatCurrency(p.setupFee, state.business.currency)}</div>}
+
+                <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setViewProduct(p)}><Eye className="mr-1 h-3.5 w-3.5" /> View</Button>
                     <Button variant="outline" size="sm" onClick={() => setEditProduct(p)}><Pencil className="mr-1 h-3.5 w-3.5" /> Edit</Button>
@@ -172,7 +221,7 @@ function ProductsContent() {
 function ProductDetailDialog({ product, currency, onClose }: { product: Product; currency: string; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product.name}</DialogTitle>
           <DialogDescription>{typeLabels[product.type]}</DialogDescription>
@@ -190,17 +239,44 @@ function ProductDetailDialog({ product, currency, onClose }: { product: Product;
               ))}
             </div>
           </div>
+
+          {/* Enabled Capabilities */}
           <div>
-            <h4 className="text-sm font-semibold mb-2">Resource Limits</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {product.resourceLimits.map((r) => (
-                <div key={r.label} className="rounded-lg border p-2 text-sm">
-                  <span className="text-muted-foreground">{r.label}: </span>
-                  <span className="font-medium">{r.value}</span>
-                </div>
+            <h4 className="text-sm font-semibold mb-2">Client Control Center Capabilities</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {(product.capabilities || []).map((cap) => (
+                <Badge key={cap} variant="secondary" className="capitalize text-xs">
+                  {cap.replace(/_/g, ' ')}
+                </Badge>
               ))}
             </div>
           </div>
+
+          {/* Plan Quotas */}
+          {product.planLimits && (
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Plan Limits & Quotas</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border p-2">
+                  <span className="text-muted-foreground">Storage: </span>
+                  <span className="font-bold">{product.planLimits.storageGB} GB</span>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <span className="text-muted-foreground">Bandwidth: </span>
+                  <span className="font-bold">{product.planLimits.bandwidthGB} GB</span>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <span className="text-muted-foreground">Max Databases: </span>
+                  <span className="font-bold">{product.planLimits.databases}</span>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <span className="text-muted-foreground">Max Mailboxes: </span>
+                  <span className="font-bold">{product.planLimits.emailAccounts}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {product.addons.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold mb-2">Add-ons</h4>
@@ -233,7 +309,25 @@ function ProductFormDialog({ product, onSave, onClose }: { product?: Product; on
   const [annualPrice, setAnnualPrice] = useState(product?.pricing.find((p) => p.cycle === 'annually')?.price.toString() ?? '');
   const [setupFee, setSetupFee] = useState(product?.setupFee.toString() ?? '0');
   const [available, setAvailable] = useState(product?.available ?? true);
+
+  // Capabilities
+  const [selectedCaps, setSelectedCaps] = useState<CapabilityId[]>(
+    product?.capabilities ?? ['file_manager', 'databases', 'email_accounts', 'backups', 'ssl_certificates']
+  );
+
+  // Plan Limits
+  const [storageGB, setStorageGB] = useState(product?.planLimits?.storageGB?.toString() ?? '25');
+  const [bandwidthGB, setBandwidthGB] = useState(product?.planLimits?.bandwidthGB?.toString() ?? '500');
+  const [maxDbs, setMaxDbs] = useState(product?.planLimits?.databases?.toString() ?? '5');
+  const [maxEmails, setMaxEmails] = useState(product?.planLimits?.emailAccounts?.toString() ?? '10');
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function toggleCap(id: CapabilityId) {
+    setSelectedCaps((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  }
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
@@ -248,14 +342,28 @@ function ProductFormDialog({ product, onSave, onClose }: { product?: Product; on
     if (annualPrice) pricing.push({ cycle: 'annually', price: parseFloat(annualPrice) });
     if (pricing.length === 0) pricing.push({ cycle: 'monthly', price: 0 });
 
+    const planLimits: PlanLimits = {
+      storageGB: parseInt(storageGB, 10) || 25,
+      bandwidthGB: parseInt(bandwidthGB, 10) || 500,
+      databases: parseInt(maxDbs, 10) || 5,
+      emailAccounts: parseInt(maxEmails, 10) || 10,
+      subdomains: 10,
+    };
+
     const saved = {
       ...(product ? { id: product.id } : {}),
       name: name.trim(),
       type,
       description: description.trim(),
       pricing,
+      priceMonthly: parseFloat(monthlyPrice) || 0,
       setupFee: parseFloat(setupFee) || 0,
-      resourceLimits: product?.resourceLimits ?? [{ label: 'Storage', value: '10 GB' }],
+      resourceLimits: [
+        { label: 'Storage', value: `${planLimits.storageGB} GB` },
+        { label: 'Bandwidth', value: `${planLimits.bandwidthGB} GB` },
+      ],
+      capabilities: selectedCaps,
+      planLimits,
       available,
       addons: product?.addons ?? [],
     };
@@ -264,15 +372,25 @@ function ProductFormDialog({ product, onSave, onClose }: { product?: Product; on
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-xl max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
-          <DialogDescription>{product ? 'Update product information' : 'Create a new demo product'}</DialogDescription>
+          <DialogTitle>{product ? 'Edit Product & Capabilities' : 'Add Product'}</DialogTitle>
+          <DialogDescription>
+            {product
+              ? 'Update specifications, pricing, and control center capabilities. Changes cascade to active customer services.'
+              : 'Create a new catalog product with resource limits.'}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="name">Name *</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} />{errors.name && <p className="text-xs text-destructive">{errors.name}</p>}</div>
+
+        <form onSubmit={handleSubmit} className="space-y-5 py-1">
           <div className="space-y-2">
-            <Label>Type</Label>
+            <Label htmlFor="name">Product Name *</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Package Type</Label>
             <Select value={type} onValueChange={(v) => setType(v as ProductType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -285,16 +403,87 @@ function ProductFormDialog({ product, onSave, onClose }: { product?: Product; on
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2"><Label htmlFor="desc">Description *</Label><Input id="desc" value={description} onChange={(e) => setDescription(e.target.value)} />{errors.description && <p className="text-xs text-destructive">{errors.description}</p>}</div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label htmlFor="monthly">Monthly Price</Label><Input id="monthly" type="number" step="0.01" value={monthlyPrice} onChange={(e) => setMonthlyPrice(e.target.value)} placeholder="0.00" /></div>
-            <div className="space-y-2"><Label htmlFor="annual">Annual Price</Label><Input id="annual" type="number" step="0.01" value={annualPrice} onChange={(e) => setAnnualPrice(e.target.value)} placeholder="0.00" /></div>
+
+          <div className="space-y-2">
+            <Label htmlFor="desc">Description *</Label>
+            <Input id="desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+            {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
           </div>
-          <div className="space-y-2"><Label htmlFor="setup">Setup Fee</Label><Input id="setup" type="number" step="0.01" value={setupFee} onChange={(e) => setSetupFee(e.target.value)} /></div>
-          <div className="flex items-center gap-2"><Switch id="avail" checked={available} onCheckedChange={setAvailable} /><Label htmlFor="avail">Available for purchase</Label></div>
-          <DialogFooter>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="monthly">Monthly Price ($)</Label>
+              <Input id="monthly" type="number" step="0.01" value={monthlyPrice} onChange={(e) => setMonthlyPrice(e.target.value)} placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="annual">Annual Price ($)</Label>
+              <Input id="annual" type="number" step="0.01" value={annualPrice} onChange={(e) => setAnnualPrice(e.target.value)} placeholder="0.00" />
+            </div>
+          </div>
+
+          {/* Capabilities Selector */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Enabled Client Control Center Capabilities
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Determines which management tabs and features customers can use in their Hosting Control Center.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              {ALL_CAPABILITIES.map((cap) => {
+                const isSelected = selectedCaps.includes(cap.id);
+                return (
+                  <button
+                    key={cap.id}
+                    type="button"
+                    onClick={() => toggleCap(cap.id)}
+                    className={`p-2 rounded-lg border text-left text-xs transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-semibold'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="truncate">{cap.label}</span>
+                    {isSelected && <Check className="h-3.5 w-3.5 text-blue-600 shrink-0 ml-1" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Plan Limits */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Plan Limits & Quotas
+            </Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="st" className="text-xs">Storage (GB)</Label>
+                <Input id="st" type="number" value={storageGB} onChange={(e) => setStorageGB(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="bw" className="text-xs">Bandwidth (GB)</Label>
+                <Input id="bw" type="number" value={bandwidthGB} onChange={(e) => setBandwidthGB(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="dbs" className="text-xs">Databases</Label>
+                <Input id="dbs" type="number" value={maxDbs} onChange={(e) => setMaxDbs(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="em" className="text-xs">Mailboxes</Label>
+                <Input id="em" type="number" value={maxEmails} onChange={(e) => setMaxEmails(e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <Switch id="avail" checked={available} onCheckedChange={setAvailable} />
+            <Label htmlFor="avail">Available for purchase in Storefront</Label>
+          </div>
+
+          <DialogFooter className="pt-2 border-t">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{product ? 'Save Changes' : 'Create Product'}</Button>
+            <Button type="submit">{product ? 'Save & Propagate Changes' : 'Create Product'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

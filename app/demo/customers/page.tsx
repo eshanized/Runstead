@@ -20,6 +20,7 @@ import {
   Globe,
   ExternalLink,
   AlertTriangle,
+  LogIn,
 } from 'lucide-react';
 import { DemoShell } from '@/components/demo/demo-shell';
 import { DemoPageHeader, DemoEmptyState } from '@/components/demo/demo-helpers';
@@ -137,6 +138,18 @@ function CustomersContent() {
     } catch (err: any) {
       toast.error(err.message);
     }
+  }
+
+  function handleLoginAsCustomer(customer: Customer) {
+    setState((prev) => ({ ...prev, activeClientCustomerId: customer.id }));
+    toast.success(`Active customer session switched to ${customer.name}`, {
+      action: {
+        label: 'Go to Client Portal →',
+        onClick: () => {
+          window.location.href = '/demo/storefront-preview/client';
+        },
+      },
+    });
   }
 
   // Related collections for selected customer
@@ -285,6 +298,16 @@ function CustomersContent() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => handleLoginAsCustomer(c)}
+                        title={`Log in as ${c.name} (Client Portal)`}
+                        aria-label={`Log in as ${c.name}`}
+                      >
+                        <LogIn className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -545,6 +568,18 @@ function CustomersContent() {
             </Tabs>
 
             <DialogFooter className="flex-wrap gap-2 pt-2 border-t">
+              <Button
+                size="sm"
+                className="bg-primary text-white"
+                asChild
+                onClick={() => {
+                  setState((prev) => ({ ...prev, activeClientCustomerId: selectedCustomer.id }));
+                }}
+              >
+                <Link href="/demo/storefront-preview/client">
+                  <LogIn className="mr-1.5 h-3.5 w-3.5" /> Log in as Customer (Portal)
+                </Link>
+              </Button>
               {!selectedCustomer.archived && (
                 <Button variant="outline" size="sm" onClick={() => handleArchive(selectedCustomer)}>
                   <Archive className="mr-1.5 h-3.5 w-3.5" /> Archive Safely
