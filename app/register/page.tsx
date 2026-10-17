@@ -54,7 +54,7 @@ export default function RegisterPage() {
       }
 
       toast.success('Reseller account created successfully!');
-      router.push('/demo/overview');
+      router.push('/dashboard/overview');
     } catch {
       setErrorMessage('Network error during registration.');
       toast.error('Failed to create account');

@@ -76,7 +76,7 @@ export default function SolutionsPage() {
           <p className="mt-4 text-muted-foreground">From a free sandbox to enterprise infrastructure, there is a plan for every stage.</p>
           <div className="mt-8 flex gap-3 justify-center">
             <Button asChild size="lg"><Link href="/pricing">View Pricing</Link></Button>
-            <Button asChild variant="outline" size="lg"><Link href="/demo">Try the Demo</Link></Button>
+            <Button asChild variant="outline" size="lg"><Link href="/dashboard/overview">Open Platform Console</Link></Button>
           </div>
         </div>
       </section>

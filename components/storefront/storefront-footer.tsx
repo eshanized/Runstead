@@ -42,7 +42,7 @@ export function StorefrontFooter({ config }: StorefrontFooterProps) {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand Info & Contact */}
           <div className="lg:col-span-2 space-y-4">
-            <Link href="/demo/storefront-preview" className="flex items-center gap-2.5">
+            <Link href="/storefront" className="flex items-center gap-2.5">
               {branding.logoUrl ? (
                 <img
                   src={branding.logoUrl}
@@ -133,15 +133,15 @@ export function StorefrontFooter({ config }: StorefrontFooterProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link href="/demo/storefront-preview/privacy" className="hover:text-white transition-colors">
+            <Link href="/storefront/privacy" className="hover:text-white transition-colors">
               Privacy Policy
             </Link>
             <span>•</span>
-            <Link href="/demo/storefront-preview/terms" className="hover:text-white transition-colors">
+            <Link href="/storefront/terms" className="hover:text-white transition-colors">
               Terms of Service
             </Link>
             <span>•</span>
-            <Link href="/demo/storefront-preview/status" className="hover:text-white transition-colors">
+            <Link href="/storefront/status" className="hover:text-white transition-colors">
               System Status
             </Link>
           </div>

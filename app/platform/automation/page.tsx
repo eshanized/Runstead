@@ -28,8 +28,8 @@ export default function AutomationPage() {
             description="From order to activation to renewal, the platform automates every step of the hosting service lifecycle — with retry handling, failure visibility, and reconciliation."
           />
           <div className="mt-8 flex gap-3 justify-center">
-            <Button asChild><Link href="/demo/orders">View Orders Demo</Link></Button>
-            <Button asChild variant="outline"><Link href="/demo/services">View Services Demo</Link></Button>
+            <Button asChild><Link href="/dashboard/orders">View Orders</Link></Button>
+            <Button asChild variant="outline"><Link href="/dashboard/services">View Services</Link></Button>
           </div>
         </div>
       </section>
@@ -83,16 +83,14 @@ export default function AutomationPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <Alert>
-            <AlertTitle>Demonstration notice</AlertTitle>
-            <AlertDescription>
-              The automation features shown in the demo are simulated. No real hosting accounts are created,
-              no real servers are provisioned, and no real infrastructure is affected. The production platform
-              will connect to real hosting providers through secured API integrations.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Production Infrastructure Layer</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              Runstead connects directly to production hosting providers, hypervisors, and server control centers via authenticated APIs (cPanel/WHM JSON-API v1, Docker, KVM). Provisioning tasks are durable, audited, and monitored with automated retries and dead-letter queue isolation.
             </AlertDescription>
           </Alert>
           <div className="mt-8 text-center">
-            <Button asChild size="lg"><Link href="/demo/orders">Try the orders demo <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild size="lg"><Link href="/dashboard/orders">Open Orders Console <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>

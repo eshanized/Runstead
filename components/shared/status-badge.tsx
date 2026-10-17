@@ -41,6 +41,7 @@ function colorForStatus(status: string): BadgeColor {
     resolved: 'success',
     connected: 'success',
     available: 'success',
+    live: 'success',
     sent: 'default',
     draft: 'default',
     pending: 'warning',

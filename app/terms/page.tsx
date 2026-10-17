@@ -11,45 +11,45 @@ export default function TermsPage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 space-y-8">
           <SectionHeading
             align="left"
-            eyebrow="Terms of Service (Demo Model)"
-            title="SaaS Subscription & Evaluation Terms"
-            description="Demonstration model of the proposed terms of service governing reseller subscriptions and platform operations."
+            eyebrow="Legal & Compliance"
+            title="Terms of Service"
+            description="Terms governing use of the Runstead hosting operating platform, APIs, infrastructure automation, and customer storefronts."
           />
 
-          <Alert>
-            <AlertTitle>Demonstration Disclaimer</AlertTitle>
-            <AlertDescription>
-              Runstead is an interactive demonstration project created by {siteConfig.company}. These terms are provided for product demonstration and architectural evaluation purposes only. No commercial contracts are entered into via this site.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Production Platform Agreement</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              Runstead operates an enterprise multi-tenant platform with Row-Level Security, automated lifecycle orchestration, and upstream provider integrations. These terms govern active reseller tenant accounts and services.
             </AlertDescription>
           </Alert>
 
           <Card>
             <CardContent className="space-y-6 pt-6 text-sm text-muted-foreground leading-relaxed">
               <div>
-                <h3 className="text-base font-semibold text-foreground mb-2">1. Demonstration Scope & Boundaries</h3>
+                <h3 className="text-base font-semibold text-foreground mb-2">1. Platform Services & Multi-Tenant Boundaries</h3>
                 <p>
-                  All features, including SaaS plan selection, domain availability checks, payment simulations, server provisioning runs, and DNS changes, are strictly simulated within demo data. No real funds are transferred and no live servers are modified.
+                  Runstead provides SaaS infrastructure, provisioning workers, DNS orchestration, and billing automation for hosting resellers. All customer and tenant data is isolated using PostgreSQL Row-Level Security and encrypted credential storage.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-base font-semibold text-foreground mb-2">2. Reseller Rights & Whitelabel Operations</h3>
+                <h3 className="text-base font-semibold text-foreground mb-2">2. Reseller Rights & Whitelabel Storefronts</h3>
                 <p>
-                  Under the proposed commercial model, subscribers to Runstead retain full ownership of their end-customer relationships, brand identity, custom domains, and storefront themes. Tonmoy Infrastructure operates as the underlying SaaS infrastructure provider.
+                  Subscribers to Runstead retain full commercial ownership of their end-customer accounts, brand identity, custom domains, and storefront pricing. Tonmoy Infrastructure operates as the underlying cloud infrastructure provider.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-base font-semibold text-foreground mb-2">3. Acceptable Use</h3>
+                <h3 className="text-base font-semibold text-foreground mb-2">3. Acceptable Use & Security</h3>
                 <p>
-                  The production platform will enforce strict anti-abuse policies across provisioned infrastructure, automated spam and phishing detection on customer DNS zones, and automated rate limiting on public storefront endpoints.
+                  Tenants are responsible for services provisioned under their account. Automated rate limiting, SSRF endpoint validation, and continuous audit logging are enforced across all public storefronts and management APIs.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-base font-semibold text-foreground mb-2">4. Contact</h3>
+                <h3 className="text-base font-semibold text-foreground mb-2">4. Contact & Inquiries</h3>
                 <p>
-                  For feedback or inquiries regarding the investor demo, contact {siteConfig.contactEmail}.
+                  For support or enterprise compliance inquiries, reach out to {siteConfig.contactEmail}.
                 </p>
               </div>
             </CardContent>

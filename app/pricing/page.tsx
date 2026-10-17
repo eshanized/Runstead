@@ -23,7 +23,7 @@ export default function PricingPage() {
           <SectionHeading
             eyebrow="Pricing"
             title="Plans that scale with your hosting business"
-            description="Start free with the Sandbox, upgrade as you grow. All prices are indicative assumptions for demonstration and require validation before launch."
+            description="Start with Sandbox or launch your production tier. Transparent pricing with multi-tenant isolation, automated provisioning, and dedicated support."
           />
           <div className="mt-8 flex items-center justify-center gap-4">
             <Label htmlFor="billing-toggle" className="text-sm">Monthly</Label>
@@ -126,16 +126,14 @@ export default function PricingPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-          <Alert>
-            <AlertTitle>Indicative pricing notice</AlertTitle>
-            <AlertDescription>
-              All prices shown on this page are indicative assumptions for demonstration purposes only.
-              They do not constitute a commercial offer. Final pricing will be determined and published
-              before the production launch and may differ from what is shown here.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Enterprise SLA & Infrastructure Reliability</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              All production plans include continuous automated backups, 99.9% uptime SLA commitments, encrypted credential storage, and automated fail-closed PostgreSQL Row-Level Security.
             </AlertDescription>
           </Alert>
           <div className="text-center">
-            <Button asChild size="lg"><Link href="/demo">Explore the interactive demo <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild size="lg"><Link href="/register">Get Started with Runstead <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>

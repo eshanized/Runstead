@@ -40,14 +40,39 @@ export async function POST(
   }
 
   // 2. Fetch service & verify ownership
-  const service = await prisma.service.findUnique({
-    where: {
-      tenantId_id: {
-        tenantId,
-        id: serviceId,
+  let service: any = null;
+  try {
+    service = await prisma.service.findUnique({
+      where: {
+        tenantId_id: {
+          tenantId,
+          id: serviceId,
+        },
       },
-    },
-  });
+    });
+  } catch {
+    const { getLocalDb, resolveLocalTenantId } = await import('@/lib/db/local-db');
+    const db = getLocalDb();
+    const resolved = resolveLocalTenantId(tenantId);
+    const row = db.prepare('SELECT * FROM services WHERE tenant_id = ? AND id = ?').get(resolved, serviceId) as any;
+    if (row) {
+      service = {
+        id: row.id,
+        tenantId: row.tenant_id,
+        customerId: row.customer_id,
+        productId: row.product_id,
+        serviceName: row.service_name,
+        package: row.package,
+        domain: row.domain,
+        billingCycle: row.billing_cycle,
+        price: row.price,
+        ipAddress: row.ip_address,
+        serverHostname: row.server_hostname,
+        username: row.username,
+        status: row.status,
+      };
+    }
+  }
 
   if (!service || service.customerId !== customer.id) {
     return NextResponse.json({ error: 'Service not found or unauthorized' }, { status: 404 });

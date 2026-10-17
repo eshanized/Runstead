@@ -68,13 +68,10 @@ export default function AboutPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-          <Alert>
-            <AlertTitle>About this project</AlertTitle>
-            <AlertDescription>
-              This is an investor demonstration project by {siteConfig.company}. It is not a registered company
-              with verified corporate details. No founders, employees, investors, certifications, or partnerships
-              are claimed or implied. All content on this site is part of a product demonstration. Contact us
-              at {siteConfig.contactEmail} for more information.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">About Runstead</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              Runstead is a modern hosting business operating platform engineered by {siteConfig.company}. Built as a cloud-native, fail-closed multi-tenant system with Row-Level Security, it delivers automated provisioning, domain orchestration, and comprehensive business management. Contact us at {siteConfig.contactEmail}.
             </AlertDescription>
           </Alert>
           <div className="text-center">

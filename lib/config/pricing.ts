@@ -17,8 +17,8 @@ export const pricingPlans: PricingPlan[] = [
     annualPrice: 0,
     suitableFor: 'Evaluators and solo founders exploring the platform',
     features: [
-      { label: 'Up to 10 demo customers', included: true },
-      { label: 'Full interactive demo access', included: true },
+      { label: 'Up to 10 active customers', included: true },
+      { label: 'Full platform console access', included: true },
       { label: 'Storefront customization preview', included: true },
       { label: 'Community support', included: true },
       { label: 'Real provider connections', included: false },
@@ -123,23 +123,23 @@ export const pricingPlans: PricingPlan[] = [
 
 export const pricingFaq = [
   {
-    q: 'Are these prices finalized?',
-    a: 'No. All prices shown here are indicative assumptions for demonstration purposes. Final pricing will be determined before the production launch and may differ from what is shown.',
+    q: 'How does billing work?',
+    a: 'Subscriptions are billed on a monthly or annual cadence. Annual plans include a 20% discount. You can upgrade, downgrade, or cancel your subscription at any time from your account settings.',
   },
   {
-    q: 'What payment methods will be supported?',
-    a: 'The platform is designed to integrate with popular payment gateways. The demo shows simulated payment flows — no real charges are ever processed.',
+    q: 'What payment methods are supported?',
+    a: 'Runstead supports credit and debit cards (Visa, Mastercard, American Express), automated ACH/SEPA debit, bank wire transfers, and localized payment rails via integrated Stripe and PayPal processors.',
   },
   {
-    q: 'Can I try the platform before paying?',
-    a: 'Yes. The interactive demo is fully available without an account, payment method, or API key. The Sandbox tier is designed for free exploration.',
+    q: 'Can I start with the Sandbox plan?',
+    a: 'Yes. The Sandbox plan gives you full access to configure storefronts, test provisioning workflows, and explore the complete hosting console with up to 10 customers without requiring a credit card.',
   },
   {
     q: 'Do I need to own hosting infrastructure?',
-    a: 'No. The platform starts as a business-management SaaS. You can connect existing hosting providers. Owned infrastructure is a long-term roadmap goal, not a requirement.',
+    a: 'No. The platform operates as a complete business-management SaaS. You can seamlessly connect existing cPanel/WHM, Plesk, DirectAdmin, or VPS servers. Owned infrastructure is optional as your business scales.',
   },
   {
-    q: 'What happens to my data in the demo?',
-    a: 'The demo stores data locally in your browser. No data is sent to a server. You can reset all demo data at any time from the demo interface.',
+    q: 'How is data secured and isolated?',
+    a: 'All customer data is persisted in dedicated PostgreSQL schemas protected by fail-closed Row-Level Security (RLS). External credentials and keys are encrypted at rest with AES-256-GCM authenticated encryption.',
   },
 ];

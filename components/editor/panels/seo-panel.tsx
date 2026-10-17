@@ -172,12 +172,12 @@ export function SeoPanel({ config, onChange }: SeoPanelProps) {
           <div className="space-y-0.5 pr-2">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-900">Prevent Search Engine Indexing (noindex)</span>
-              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-amber-300 text-amber-700 bg-amber-50">
-                Demo Default
+              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-slate-300 text-slate-700 bg-slate-50">
+                SEO Privacy
               </Badge>
             </div>
             <p className="text-[11px] text-slate-500">
-              Instructs search crawlers not to index this demonstration storefront in public web results.
+              Instructs search crawlers not to index this storefront in public search results.
             </p>
           </div>
           <Switch

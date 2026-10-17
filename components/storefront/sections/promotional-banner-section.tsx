@@ -21,7 +21,7 @@ export function PromotionalBannerSection({ section, config }: PromotionalBannerS
     settings.description ||
     'Lock in flat predictable pricing with free setup, automated daily backups, and dedicated vCPU resources.';
   const ctaText = settings.ctaText || 'Claim Offer';
-  const ctaHref = settings.ctaHref || '/demo/storefront-preview/vps';
+  const ctaHref = settings.ctaHref || '/storefront/vps';
 
   return (
     <section className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white py-14 sm:py-16 border-b border-slate-800">

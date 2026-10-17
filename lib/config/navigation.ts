@@ -56,24 +56,27 @@ export const footerNav: { title: string; links: NavItem[] }[] = [
       { label: 'Pricing', href: '/pricing' },
       { label: 'Integrations', href: '/integrations' },
       { label: 'Live Progress Dashboard', href: '/progress' },
-      { label: 'Interactive Demo', href: '/demo' },
+      { label: 'Platform Console', href: '/dashboard/overview' },
     ],
   },
 ];
 
-export const demoNav: { label: string; href: string; icon: string }[] = [
-  { label: 'Overview', href: '/demo/overview', icon: 'LayoutDashboard' },
-  { label: 'Customers', href: '/demo/customers', icon: 'Users' },
-  { label: 'Products', href: '/demo/products', icon: 'Package' },
-  { label: 'Orders', href: '/demo/orders', icon: 'ShoppingCart' },
-  { label: 'Services', href: '/demo/services', icon: 'Server' },
-  { label: 'Domains', href: '/demo/domains', icon: 'Globe' },
-  { label: 'DNS Zones', href: '/demo/dns', icon: 'Network' },
-  { label: 'Invoices', href: '/demo/invoices', icon: 'FileText' },
-  { label: 'Support', href: '/demo/tickets', icon: 'LifeBuoy' },
-  { label: 'Analytics', href: '/demo/analytics', icon: 'BarChart3' },
-  { label: 'Storefront', href: '/demo/storefront', icon: 'Store' },
-  { label: 'Integrations', href: '/demo/integrations', icon: 'Plug' },
-  { label: 'Settings', href: '/demo/settings', icon: 'Settings' },
-  { label: 'Onboarding', href: '/demo/onboarding', icon: 'Rocket' },
+export const dashboardNav: { label: string; href: string; icon: string }[] = [
+  { label: 'Overview', href: '/dashboard/overview', icon: 'LayoutDashboard' },
+  { label: 'Customers', href: '/dashboard/customers', icon: 'Users' },
+  { label: 'Products', href: '/dashboard/products', icon: 'Package' },
+  { label: 'Orders', href: '/dashboard/orders', icon: 'ShoppingCart' },
+  { label: 'Services', href: '/dashboard/services', icon: 'Server' },
+  { label: 'Domains', href: '/dashboard/domains', icon: 'Globe' },
+  { label: 'DNS Zones', href: '/dashboard/dns', icon: 'Network' },
+  { label: 'Invoices', href: '/dashboard/invoices', icon: 'FileText' },
+  { label: 'Support', href: '/dashboard/tickets', icon: 'LifeBuoy' },
+  { label: 'Analytics', href: '/dashboard/analytics', icon: 'BarChart3' },
+  { label: 'Storefront', href: '/dashboard/storefront', icon: 'Store' },
+  { label: 'Integrations', href: '/dashboard/integrations', icon: 'Plug' },
+  { label: 'Settings', href: '/dashboard/settings', icon: 'Settings' },
+  { label: 'Onboarding', href: '/dashboard/onboarding', icon: 'Rocket' },
 ];
+
+export const demoNav = dashboardNav;
+

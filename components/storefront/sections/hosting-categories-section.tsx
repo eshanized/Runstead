@@ -24,7 +24,7 @@ export function HostingCategoriesSection({ section, config }: HostingCategoriesS
       icon: Server,
       title: 'Shared Hosting',
       desc: 'High-speed web hosting with SSD storage, free automated SSL, and 1-click app installer.',
-      href: '/demo/storefront-preview/hosting',
+      href: '/storefront/hosting',
       badge: 'From $4.99/mo',
     },
     {
@@ -32,7 +32,7 @@ export function HostingCategoriesSection({ section, config }: HostingCategoriesS
       icon: Cpu,
       title: 'Cloud VPS',
       desc: 'Dedicated virtual servers with full root access, dedicated vCPU cores, and NVMe SSD disks.',
-      href: '/demo/storefront-preview/vps',
+      href: '/storefront/vps',
       badge: 'From $19.99/mo',
     },
     {
@@ -40,7 +40,7 @@ export function HostingCategoriesSection({ section, config }: HostingCategoriesS
       icon: Globe,
       title: 'Domain Marketplace',
       desc: 'Register and manage 200+ TLDs with Anycast DNS routing and instant nameserver updates.',
-      href: '/demo/storefront-preview/domains',
+      href: '/storefront/domains',
       badge: 'From $12.99/yr',
     },
     {
@@ -48,7 +48,7 @@ export function HostingCategoriesSection({ section, config }: HostingCategoriesS
       icon: Sparkles,
       title: 'Managed WordPress & DNS',
       desc: 'Turnkey WordPress optimization, automated core & plugin updates, and Anycast DNS resolution.',
-      href: '/demo/storefront-preview/managed',
+      href: '/storefront/managed',
       badge: 'Managed Care',
     },
   ];

@@ -17,7 +17,7 @@ const checkoutSchema = z.object({
   }),
   items: z.array(
     z.object({
-      productId: z.string().uuid(),
+      productId: z.string().min(1),
       cycle: z.string().min(1),
       quantity: z.number().int().min(1).default(1),
     })
@@ -49,9 +49,25 @@ export async function POST(req: Request) {
   const { tenantSlug, customer: customerInput, items, successUrl, cancelUrl } = parsed.data;
 
   // 1. Resolve Tenant
-  const tenant = await prisma.tenant.findUnique({
-    where: { slug: tenantSlug.toLowerCase() },
-  });
+  let tenant: { id: string; name: string; currency: string } | null = null;
+  try {
+    const t = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug.toLowerCase() },
+    });
+    if (t) tenant = t;
+  } catch {
+    // SQLite fallback
+  }
+
+  if (!tenant) {
+    const { getLocalDb, resolveLocalTenantId } = await import('@/lib/db/local-db');
+    const db = getLocalDb();
+    const resolvedId = resolveLocalTenantId(tenantSlug);
+    const row = db.prepare('SELECT id, name, currency FROM tenants WHERE id = ? OR slug = ?').get(resolvedId, tenantSlug.toLowerCase()) as any;
+    if (row) {
+      tenant = { id: row.id, name: row.name, currency: row.currency };
+    }
+  }
 
   if (!tenant) {
     return NextResponse.json({ error: 'Reseller storefront tenant not found' }, { status: 404 });
@@ -61,31 +77,49 @@ export async function POST(req: Request) {
   const authUser = await getAuthenticatedUser(req);
   const normalizedEmail = customerInput.email.toLowerCase().trim();
 
-  let customer = await prisma.customer.findFirst({
-    where: {
-      tenantId: tenant.id,
-      email: normalizedEmail,
-    },
-  });
-
-  if (!customer) {
-    customer = await prisma.customer.create({
-      data: {
+  let customer: { id: string; name: string; email: string } | null = null;
+  try {
+    const c = await prisma.customer.findFirst({
+      where: {
         tenantId: tenant.id,
-        name: customerInput.name,
         email: normalizedEmail,
-        company: customerInput.company,
-        country: customerInput.country || 'US',
-        phone: customerInput.phone,
-        userId: authUser ? authUser.id : undefined,
       },
     });
-  } else if (authUser && !customer.userId) {
-    // Link customer to authenticated user if not already linked
-    await prisma.customer.update({
-      where: { id: customer.id },
-      data: { userId: authUser.id },
-    });
+
+    if (!c) {
+      const created = await prisma.customer.create({
+        data: {
+          tenantId: tenant.id,
+          name: customerInput.name,
+          email: normalizedEmail,
+          company: customerInput.company,
+          country: customerInput.country || 'US',
+          phone: customerInput.phone,
+          userId: authUser ? authUser.id : undefined,
+        },
+      });
+      customer = created;
+    } else {
+      customer = c;
+    }
+  } catch {
+    const { getLocalDb } = await import('@/lib/db/local-db');
+    const db = getLocalDb();
+    const row = db.prepare('SELECT id, name, email FROM customers WHERE tenant_id = ? AND email = ?').get(tenant.id, normalizedEmail) as any;
+    if (row) {
+      customer = row;
+    } else {
+      const id = `c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      db.prepare(`
+        INSERT INTO customers (id, tenant_id, name, email, company, country, phone)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, tenant.id, customerInput.name, normalizedEmail, customerInput.company || null, customerInput.country || 'US', customerInput.phone || null);
+      customer = { id, name: customerInput.name, email: normalizedEmail };
+    }
+  }
+
+  if (!customer) {
+    return NextResponse.json({ error: 'Customer record could not be established' }, { status: 400 });
   }
 
   // 3. Create Authoritative Order and Invoice on Server

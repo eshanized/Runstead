@@ -32,7 +32,7 @@ export function NewsletterSection({ section, config }: NewsletterSectionProps) {
       return;
     }
     setSubscribed(true);
-    toast.success('Thank you for subscribing to simulated hosting alerts!');
+    toast.success('Thank you for subscribing to hosting alerts!');
   }
 
   return (
@@ -44,7 +44,7 @@ export function NewsletterSection({ section, config }: NewsletterSectionProps) {
         {subscribed ? (
           <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-800 font-medium">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>You have been subscribed to our simulated announcement list.</span>
+            <span>You have been subscribed to our announcement list.</span>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mx-auto flex max-w-md flex-col sm:flex-row gap-2">
@@ -70,7 +70,7 @@ export function NewsletterSection({ section, config }: NewsletterSectionProps) {
         )}
 
         <div className="text-[11px] text-slate-400">
-          Simulated newsletter signup for demo demonstration. We respect your inbox privacy.
+          We respect your inbox privacy. Unsubscribe at any time.
         </div>
       </div>
     </section>

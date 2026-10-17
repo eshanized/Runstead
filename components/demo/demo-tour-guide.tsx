@@ -48,7 +48,7 @@ const TOUR_STEPS: TourStep[] = [
     role: 'reseller',
     description:
       'Explore the multi-tenant hosting business dashboard. Inspect real-time MRR telemetry, order pipelines, active customer tenants, and integration health.',
-    route: '/demo/overview',
+    route: '/dashboard/overview',
     highlights: ['MRR & Revenue Telemetry', 'Customer Growth', 'Operational Alerts'],
   },
   {
@@ -57,7 +57,7 @@ const TOUR_STEPS: TourStep[] = [
     role: 'reseller',
     description:
       'Configure hosting packages and toggle exact control center capabilities (File Manager, Databases, SSL, Backups, VPS Power) delivered to end customers.',
-    route: '/demo/products',
+    route: '/dashboard/products',
     highlights: ['Capability Toggles', 'Quota Allocations', 'Live Service Cascade'],
   },
   {
@@ -66,7 +66,7 @@ const TOUR_STEPS: TourStep[] = [
     role: 'customer',
     description:
       'Experience the customizable customer-facing storefront featuring dynamic pricing tables, custom branding colors, and domain availability lookup.',
-    route: '/demo/storefront-preview',
+    route: '/storefront',
     highlights: ['Custom Reseller Branding', 'Domain Search', 'Plan Comparison'],
   },
   {
@@ -74,18 +74,18 @@ const TOUR_STEPS: TourStep[] = [
     title: 'Automated Checkout & Invoicing',
     role: 'customer',
     description:
-      'Walk through the end-to-end purchasing workflow with coupon discounts, billing cycle selection, tax calculations, and instant simulated settlement.',
-    route: '/demo/storefront-preview/checkout?plan=prod_001&billing=monthly',
-    highlights: ['Instant Payment Simulation', 'Invoice Generation', 'Client Onboarding'],
+      'Walk through the end-to-end purchasing workflow with coupon discounts, billing cycle selection, tax calculations, and instant payment settlement.',
+    route: '/storefront/checkout?plan=prod_001&billing=monthly',
+    highlights: ['Instant Payment Settlement', 'Invoice Generation', 'Client Onboarding'],
   },
   {
     step: 5,
     title: 'Provisioning Engine & Recovery',
     role: 'reseller',
     description:
-      'Audit order lifecycle automation. Witness how simulated hypervisor quota exhaustion is flagged (ORD-0158) and retry provisioning with 1 click.',
-    route: '/demo/orders',
-    highlights: ['Hypervisor Queue', 'Error Recovery Simulation', 'Automated Retries'],
+      'Audit order lifecycle automation. Witness how upstream hypervisor quota exhaustion is flagged (ORD-0158) and retry provisioning with 1 click.',
+    route: '/dashboard/orders',
+    highlights: ['Hypervisor Queue', 'Error Recovery Automation', 'Automated Retries'],
   },
   {
     step: 6,
@@ -93,7 +93,7 @@ const TOUR_STEPS: TourStep[] = [
     role: 'customer',
     description:
       'Log into the customer portal as Alex Chen. Review purchased compute instances, overdue invoices, and launch support tickets.',
-    route: '/demo/storefront-preview/client/services',
+    route: '/client/services',
     highlights: ['Service Directory', 'Support Tickets', 'Quick Server Actions'],
   },
   {
@@ -102,7 +102,7 @@ const TOUR_STEPS: TourStep[] = [
     role: 'customer',
     description:
       'Deep dive into the complete service control center: File Manager with code editor, MySQL databases, DNS zone editor, Let\'s Encrypt SSL reissue, and Backups.',
-    route: '/demo/storefront-preview/client/services/srv_001',
+    route: '/client/services/srv_001',
     highlights: ['Interactive File Manager', 'Schema Browser', 'Let\'s Encrypt Reissue'],
   },
   {
@@ -111,7 +111,7 @@ const TOUR_STEPS: TourStep[] = [
     role: 'platform',
     description:
       'Switch to the Tonmoy Infrastructure platform operator cockpit. Monitor cross-reseller health, global hypervisor compute nodes, and subscription billing tiers.',
-    route: '/demo/platform-admin',
+    route: '/dashboard/platform-admin',
     highlights: ['Cross-Tenant Health', 'Hypervisor Nodes', 'Global Billing Tiers'],
   },
 ];
@@ -132,15 +132,15 @@ export function DemoTourGuideDialog({
 
   function handleSwitchRole(role: 'reseller' | 'customer' | 'platform') {
     if (role === 'reseller') {
-      router.push('/demo/overview');
+      router.push('/dashboard/overview');
     } else if (role === 'customer') {
       const alex = state.customers[0];
       if (alex) {
         setState((prev) => ({ ...prev, activeClientCustomerId: alex.id }));
       }
-      router.push('/demo/storefront-preview/client/services/srv_001');
+      router.push('/client/services/srv_001');
     } else {
-      router.push('/demo/platform-admin');
+      router.push('/dashboard/platform-admin');
     }
     onOpenChange(false);
   }
@@ -160,7 +160,7 @@ export function DemoTourGuideDialog({
     resetDemo();
     setResetConfirmOpen(false);
     onOpenChange(false);
-    toast.success('Simulation state reset to pristine seed data.');
+    toast.success('Platform state reset to initial catalog data.');
     router.push('/demo/overview');
   }
 
@@ -176,10 +176,10 @@ export function DemoTourGuideDialog({
                 </span>
                 <div>
                   <DialogTitle className="text-lg font-extrabold text-slate-900">
-                    Runstead Product Simulation Explorer
+                    Runstead Platform Explorer
                   </DialogTitle>
                   <DialogDescription className="text-xs text-slate-500">
-                    Coherent hosting-business operating platform demonstration by Tonmoy Infrastructure.
+                    Coherent hosting-business operating platform by Tonmoy Infrastructure.
                   </DialogDescription>
                 </div>
               </div>
@@ -189,7 +189,7 @@ export function DemoTourGuideDialog({
           {/* Persona Switcher Bar */}
           <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Switch Simulated Role & Perspective
+              Switch Role & Console Perspective
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
@@ -342,11 +342,11 @@ export function DemoTourGuideDialog({
           <DialogHeader>
             <DialogTitle className="text-rose-600 flex items-center gap-2">
               <RotateCcw className="h-5 w-5" />
-              Reset Simulation State
+              Reset Platform State
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Are you sure you want to reset all simulated files, databases, orders, invoices, and customer changes?
-              This will restore the pristine seed catalog, preconfigured scenarios, and control center state.
+              Are you sure you want to reset all workspace files, databases, orders, invoices, and customer changes?
+              This will restore the pristine catalog, preconfigured scenarios, and control center state.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

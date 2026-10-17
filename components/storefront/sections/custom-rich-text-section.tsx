@@ -21,7 +21,7 @@ export function CustomRichTextSection({ section, config }: CustomRichTextSection
     'Provide customized text, technical explanations, or specialized hosting guarantees for your clients.';
   const calloutText = settings.calloutText || '';
   const buttonText = settings.buttonText || '';
-  const buttonHref = settings.buttonHref || '/demo/storefront-preview/hosting';
+  const buttonHref = settings.buttonHref || '/storefront/hosting';
 
   return (
     <section className="bg-white py-14 sm:py-20 border-b border-slate-100">

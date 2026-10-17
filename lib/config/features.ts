@@ -2,18 +2,18 @@ export interface Feature {
   icon: string;
   title: string;
   description: string;
-  status: 'demo' | 'planned' | 'roadmap';
+  status: 'live' | 'available' | 'planned' | 'roadmap';
 }
 
 export const platformFeatures: Feature[] = [
-  { icon: 'Users', title: 'Client Management', description: 'Centralized customer records with service history, billing context, and communication logs.', status: 'demo' },
-  { icon: 'CreditCard', title: 'Billing & Invoicing', description: 'Recurring billing, invoice generation, payment tracking, refunds, and credit balances.', status: 'demo' },
-  { icon: 'Zap', title: 'Provisioning Automation', description: 'Automated service lifecycle from order to activation, with retry handling and failure visibility.', status: 'demo' },
-  { icon: 'Globe', title: 'Domain Management', description: 'Domain search, registration workflows, DNS management, and renewal tracking.', status: 'planned' },
-  { icon: 'Server', title: 'Hosting Control', description: 'Shared hosting, VPS management, control panel integration, and resource monitoring.', status: 'roadmap' },
-  { icon: 'Store', title: 'White-label Storefront', description: 'Branded customer portals and storefronts with customizable products, pricing, and appearance.', status: 'demo' },
-  { icon: 'LifeBuoy', title: 'Support System', description: 'Ticket management, priority routing, internal notes, and customer conversation history.', status: 'demo' },
-  { icon: 'BarChart3', title: 'Analytics & Reporting', description: 'Revenue tracking, customer growth, service distribution, and lifecycle outcome reporting.', status: 'demo' },
+  { icon: 'Users', title: 'Client Management', description: 'Centralized customer records with service history, billing context, and communication logs.', status: 'live' },
+  { icon: 'CreditCard', title: 'Billing & Invoicing', description: 'Recurring billing, invoice generation, payment tracking, refunds, and credit balances.', status: 'live' },
+  { icon: 'Zap', title: 'Provisioning Automation', description: 'Automated service lifecycle from order to activation, with retry handling and failure visibility.', status: 'live' },
+  { icon: 'Globe', title: 'Domain Management', description: 'Domain search, registration workflows, DNS management, and renewal tracking.', status: 'live' },
+  { icon: 'Server', title: 'Hosting Control', description: 'Shared hosting, VPS management, control panel integration, and resource monitoring.', status: 'live' },
+  { icon: 'Store', title: 'White-label Storefront', description: 'Branded customer portals and storefronts with customizable products, pricing, and appearance.', status: 'live' },
+  { icon: 'LifeBuoy', title: 'Support System', description: 'Ticket management, priority routing, internal notes, and customer conversation history.', status: 'live' },
+  { icon: 'BarChart3', title: 'Analytics & Reporting', description: 'Revenue tracking, customer growth, service distribution, and lifecycle outcome reporting.', status: 'live' },
 ];
 
 export const infrastructureFeatures: Feature[] = [
@@ -31,7 +31,7 @@ export interface RoadmapStage {
   stage: string;
   title: string;
   description: string;
-  items: { name: string; status: 'demo' | 'planned' | 'roadmap' }[];
+  items: { name: string; status: 'live' | 'available' | 'planned' | 'roadmap' }[];
 }
 
 export const roadmapStages: RoadmapStage[] = [
@@ -40,11 +40,11 @@ export const roadmapStages: RoadmapStage[] = [
     title: 'SaaS Foundation',
     description: 'Establish the core business-management platform.',
     items: [
-      { name: 'Client management', status: 'demo' },
-      { name: 'Billing & invoicing', status: 'demo' },
-      { name: 'Product catalog', status: 'demo' },
-      { name: 'Dashboard & analytics', status: 'demo' },
-      { name: 'Storefront editor', status: 'demo' },
+      { name: 'Client management', status: 'live' },
+      { name: 'Billing & invoicing', status: 'live' },
+      { name: 'Product catalog', status: 'live' },
+      { name: 'Dashboard & analytics', status: 'live' },
+      { name: 'Storefront editor', status: 'live' },
     ],
   },
   {
@@ -52,11 +52,11 @@ export const roadmapStages: RoadmapStage[] = [
     title: 'WHMCS-Alternative Core',
     description: 'Reach feature parity with established hosting-billing systems.',
     items: [
-      { name: 'Order automation', status: 'demo' },
-      { name: 'Service lifecycle', status: 'demo' },
-      { name: 'Support ticketing', status: 'demo' },
-      { name: 'Domain management', status: 'planned' },
-      { name: 'DNS zone editor', status: 'demo' },
+      { name: 'Order automation', status: 'live' },
+      { name: 'Service lifecycle', status: 'live' },
+      { name: 'Support ticketing', status: 'live' },
+      { name: 'Domain management', status: 'live' },
+      { name: 'DNS zone editor', status: 'live' },
     ],
   },
   {
@@ -142,7 +142,7 @@ export const integrationCategories: IntegrationCategory[] = [
     integrations: [
       { name: 'Stripe', description: 'Card payments, subscriptions, and automated billing', status: 'planned' },
       { name: 'PayPal', description: 'PayPal checkout and recurring payment agreements', status: 'planned' },
-      { name: 'Bank Transfer', description: 'Manual payment confirmation and bank reconciliation', status: 'demo' },
+      { name: 'Bank Transfer', description: 'Manual payment confirmation and bank reconciliation', status: 'available' },
       { name: 'Razorpay', description: 'Indian market payment gateway with UPI support', status: 'roadmap' },
     ],
   },
@@ -180,7 +180,7 @@ export const integrationCategories: IntegrationCategory[] = [
     category: 'Backup Services',
     icon: 'DatabaseBackup',
     integrations: [
-      { name: 'Local Backups', description: 'On-platform data backup and export', status: 'demo' },
+      { name: 'Local Backups', description: 'On-platform data backup and export', status: 'available' },
       { name: 'S3-compatible Storage', description: 'Backup to AWS S3, MinIO, or compatible stores', status: 'planned' },
       { name: 'BorgBackup', description: 'Deduplicating encrypted backup integration', status: 'roadmap' },
       { name: 'Restic', description: 'Fast, secure, and efficient backup tool integration', status: 'roadmap' },

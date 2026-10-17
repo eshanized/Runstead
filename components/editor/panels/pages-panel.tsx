@@ -90,7 +90,7 @@ export function PagesPanel({ config, onChange, selectedPageSlug, onSelectPage }:
       {
         id: `nav_${newPage.id}`,
         label: newPage.title,
-        href: `/demo/storefront-preview/pages/${newPage.slug}`,
+        href: `/storefront/pages/${newPage.slug}`,
         visible: true,
         order: config.header.navItems.length + 1,
       },

@@ -57,7 +57,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOp
       { title: 'Business Analytics', href: '/demo/analytics', icon: BarChart3, category: 'Navigation' },
       { title: 'Storefront Editor', href: '/demo/storefront', icon: Store, category: 'Navigation' },
       { title: 'Storefront Preview (Customer View)', href: '/demo/storefront-preview', icon: ExternalLink, category: 'Navigation' },
-      { title: 'Checkout & Provisioning Simulator', href: '/demo/checkout', icon: ShoppingCart, category: 'Navigation' },
+      { title: 'Storefront Checkout & Provisioning', href: '/demo/checkout', icon: ShoppingCart, category: 'Navigation' },
       { title: 'Platform Operator Console (Tonmoy Admin)', href: '/demo/platform-admin', icon: Shield, category: 'Platform' },
       { title: 'SaaS Tenant Launch Wizard', href: '/demo/launch', icon: ExternalLink, category: 'Platform' },
       { title: 'Settings', href: '/demo/settings', icon: Settings, category: 'Navigation' },

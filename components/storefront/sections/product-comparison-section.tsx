@@ -116,7 +116,7 @@ export function ProductComparisonSection({ section, config }: ProductComparisonS
                       className="text-white text-xs h-8 px-4"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      <Link href={`/demo/checkout?productId=${prod.id}&cycle=${prod.pricing[0]?.cycle || 'monthly'}`}>
+                      <Link href={`/storefront/checkout?productId=${prod.id}&cycle=${prod.pricing[0]?.cycle || 'monthly'}`}>
                         Select
                       </Link>
                     </Button>

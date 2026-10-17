@@ -42,14 +42,14 @@ export function MarketingFooter() {
         </div>
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} {siteConfig.company}. All rights reserved. This is a demonstration project.
+            &copy; {new Date().getFullYear()} {siteConfig.company}. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link href="/about" className="text-xs text-muted-foreground hover:text-foreground">About</Link>
             <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy</Link>
             <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms</Link>
             <Link href="/contact" className="text-xs text-muted-foreground hover:text-foreground">Contact</Link>
-            <Link href="/demo" className="text-xs text-muted-foreground hover:text-foreground">Demo</Link>
+            <Link href="/demo/overview" className="text-xs text-muted-foreground hover:text-foreground">Console</Link>
           </div>
         </div>
       </div>

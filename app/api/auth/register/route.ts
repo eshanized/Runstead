@@ -40,38 +40,77 @@ export async function POST(req: Request) {
   const { name, email, password, businessName, tenantSlug } = parsed.data;
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-  });
+  let existingUser: any = null;
+  try {
+    existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+  } catch {
+    const { findLocalUserByEmail } = await import('@/lib/db/local-db');
+    existingUser = findLocalUserByEmail(normalizedEmail);
+  }
 
   if (existingUser) {
     return NextResponse.json({ error: 'An account with this email address already exists.' }, { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);
+  let user: any = null;
+  let tenant: any = null;
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email: normalizedEmail,
-      passwordHash,
-    },
-  });
-
-  // If business info provided, create initial reseller tenant
-  let tenant = null;
-  if (businessName && tenantSlug) {
-    tenant = await createResellerTenant(user.id, {
-      name: businessName,
-      slug: tenantSlug,
+  try {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email: normalizedEmail,
+        passwordHash,
+      },
     });
+
+    if (businessName && tenantSlug) {
+      tenant = await createResellerTenant(user.id, {
+        name: businessName,
+        slug: tenantSlug,
+      });
+    }
+  } catch {
+    const { createLocalUser, createLocalTenant, createLocalTenantMembership } = await import('@/lib/db/local-db');
+    const newUserId = `u_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    user = createLocalUser({
+      id: newUserId,
+      email: normalizedEmail,
+      name,
+      passwordHash,
+      role: 'owner',
+    });
+
+    if (businessName && tenantSlug) {
+      const newTenantId = `t_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      tenant = createLocalTenant({
+        id: newTenantId,
+        name: businessName,
+        slug: tenantSlug,
+      });
+      createLocalTenantMembership({
+        id: `tm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        tenantId: newTenantId,
+        userId: newUserId,
+        role: 'owner',
+      });
+    }
   }
 
   // Issue session
   const { rawToken } = await createSession(user.id, {
     ipAddress: ip,
     userAgent: req.headers.get('user-agent') || undefined,
+    userObj: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isPlatformAdmin: Boolean(user.isPlatformAdmin),
+      emailVerified: new Date(),
+    },
   });
 
   const response = NextResponse.json({

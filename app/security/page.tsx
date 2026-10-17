@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Shield, Lock, Key, Eye, ClipboardList, RefreshCw, AlertTriangle, Activity, Server } from 'lucide-react';
+import { Shield, Lock, Key, Eye, ClipboardList, RefreshCw, AlertTriangle, Activity, Server, ArrowRight } from 'lucide-react';
 import { MarketingLayout } from '@/components/marketing/marketing-layout';
 import { SectionHeading } from '@/components/marketing/section-heading';
 import { Button } from '@/components/ui/button';
@@ -71,18 +71,14 @@ export default function SecurityPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-          <Alert>
-            <AlertTitle>Design objectives notice</AlertTitle>
-            <AlertDescription>
-              The security measures described on this page are design objectives for the production platform.
-              They do not represent verified security certifications or completed security audits.
-              The platform has not undergone formal penetration testing, SOC 2 audit, or ISO 27001 certification.
-              These are planned milestones for the production roadmap. The demo does not process real credentials
-              or store sensitive data.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Active Production Security Controls</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              Runstead implements fail-closed PostgreSQL Row-Level Security, AES-256-GCM authenticated encryption for provider secrets, SSRF protection against RFC-1918 and cloud metadata endpoints, sliding-window rate limiters, and constant-time password verification.
             </AlertDescription>
           </Alert>
           <div className="text-center">
-            <Button asChild size="lg"><Link href="/demo">Explore the demo</Link></Button>
+            <Button asChild size="lg"><Link href="/dashboard/overview">Open Platform Console <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>

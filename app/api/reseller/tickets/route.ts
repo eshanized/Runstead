@@ -4,7 +4,7 @@ import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
 import { listTickets, createTicket, replyTicket } from '@/lib/services/ticket.service';
 
 const createTicketSchema = z.object({
-  customerId: z.string().uuid(),
+  customerId: z.string().min(1),
   subject: z.string().min(3),
   category: z.string().min(2),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
@@ -12,7 +12,7 @@ const createTicketSchema = z.object({
 });
 
 const replyTicketSchema = z.object({
-  ticketId: z.string().uuid(),
+  ticketId: z.string().min(1),
   message: z.string().min(2),
   isInternal: z.boolean().optional(),
 });

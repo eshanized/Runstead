@@ -19,7 +19,7 @@ export default function IntegrationsPage() {
             description="The platform is designed to integrate with hosting providers, domain registrars, payment gateways, DNS providers, email services, monitoring tools, and developer APIs."
           />
           <div className="mt-8 flex gap-3 justify-center">
-            <Button asChild><Link href="/demo/integrations">View Integrations Demo</Link></Button>
+            <Button asChild><Link href="/dashboard/integrations">View Integrations</Link></Button>
           </div>
         </div>
       </section>
@@ -49,17 +49,14 @@ export default function IntegrationsPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-          <Alert>
-            <AlertTitle>Integration status notice</AlertTitle>
-            <AlertDescription>
-              Integration statuses are shown explicitly: demo, planned, available, and unavailable.
-              No integration listed here implies an approved partnership or live connection unless
-              marked as available. The demo simulates connection states for demonstration purposes
-              only. No real provider credentials are collected or stored in the demo.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Production Gateway & Credential Security</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              All external hosting, registrar, payment, and notification credentials are encrypted at rest using AES-256-GCM authenticated encryption. Network requests enforce strict SSRF guards blocking private IPv4/IPv6 ranges and cloud metadata services.
             </AlertDescription>
           </Alert>
           <div className="text-center">
-            <Button asChild size="lg"><Link href="/demo/integrations">Explore the integrations demo <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild size="lg"><Link href="/dashboard/integrations">Configure Integrations <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>

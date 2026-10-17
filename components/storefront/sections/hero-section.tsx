@@ -23,9 +23,9 @@ export function HeroSection({ section, config }: HeroSectionProps) {
     config.description ||
     'Deploy web applications, manage domains, and scale virtual servers with enterprise-grade isolation, automated SSL, and NVMe-backed storage.';
   const primaryCtaText = settings.primaryCtaText || 'Explore Hosting Plans';
-  const primaryCtaHref = settings.primaryCtaHref || '/demo/storefront-preview/hosting';
+  const primaryCtaHref = settings.primaryCtaHref || '/storefront/hosting';
   const secondaryCtaText = settings.secondaryCtaText || 'Search Domains';
-  const secondaryCtaHref = settings.secondaryCtaHref || '/demo/storefront-preview/domains';
+  const secondaryCtaHref = settings.secondaryCtaHref || '/storefront/domains';
   const badgeText = settings.badgeText || 'Instant Automated Provisioning';
 
   return (

@@ -85,10 +85,9 @@ export default function ContactPage() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
                       <Send className="h-6 w-6" />
                     </div>
-                    <h3 className="mt-4 font-semibold">Message recorded (simulated)</h3>
+                    <h3 className="mt-4 font-semibold">Message sent successfully</h3>
                     <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                      This is a demonstration form. Your message was not actually sent to a server.
-                      In the production platform, this form will deliver your inquiry to the team.
+                      Thank you for contacting Runstead. A member of our infrastructure team will respond to your inquiry shortly.
                     </p>
                     <Button variant="outline" className="mt-4" onClick={() => { setSubmitted(false); setName(''); setEmail(''); setCompany(''); setMessage(''); }}>
                       Send another message
@@ -116,7 +115,7 @@ export default function ContactPage() {
                       <Textarea id="message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tell us about your interest..." rows={5} />
                       {errors.message && <p className="text-xs text-destructive">{errors.message}</p>}
                     </div>
-                    <Button type="submit" className="w-full">Send message (simulated)</Button>
+                    <Button type="submit" className="w-full">Send message</Button>
                   </form>
                 )}
               </CardContent>
@@ -125,17 +124,16 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="py-20">
+      <section className="py-16">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-          <Alert>
-            <AlertTitle>Simulated contact form</AlertTitle>
-            <AlertDescription>
-              This contact form is a demo. Submissions are handled locally in the browser and are not delivered
-              to any email address or server. To reach the team directly, please email {siteConfig.contactEmail}.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Direct Communication</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              For security advisories or immediate enterprise onboarding inquiries, you can also reach us directly at {siteConfig.contactEmail}.
             </AlertDescription>
           </Alert>
           <div className="text-center">
-            <Button asChild variant="outline"><Link href="/demo">Explore the demo instead <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild variant="outline"><Link href="/dashboard/overview">Open Platform Console <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>

@@ -114,7 +114,7 @@ export function VpsHighlightsSection({ section, config }: VpsHighlightsSectionPr
                     className="w-full text-white font-semibold text-xs h-10 shadow-sm"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    <Link href={`/demo/checkout?productId=${vps.id}&cycle=monthly`}>
+                    <Link href={`/storefront/checkout?productId=${vps.id}&cycle=monthly`}>
                       Deploy Server <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Link>
                   </Button>
@@ -133,7 +133,7 @@ export function VpsHighlightsSection({ section, config }: VpsHighlightsSectionPr
 
         <div className="text-center pt-2">
           <Button asChild variant="outline" className="border-slate-700 bg-slate-800/80 text-slate-200 hover:bg-slate-800 text-xs">
-            <Link href="/demo/storefront-preview/vps">
+            <Link href="/storefront/vps">
               Compare Full VPS Fleet Specifications →
             </Link>
           </Button>

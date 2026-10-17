@@ -28,8 +28,8 @@ export default function BillingPage() {
             description="The commercial engine of the platform: customers, products, orders, invoices, recurring billing, payment tracking, refunds, and reporting."
           />
           <div className="mt-8 flex gap-3 justify-center">
-            <Button asChild><Link href="/demo/invoices">View Invoices Demo</Link></Button>
-            <Button asChild variant="outline"><Link href="/demo/customers">Manage Customers Demo</Link></Button>
+            <Button asChild><Link href="/dashboard/invoices">View Invoices</Link></Button>
+            <Button asChild variant="outline"><Link href="/dashboard/customers">Manage Customers</Link></Button>
           </div>
         </div>
       </section>
@@ -56,7 +56,7 @@ export default function BillingPage() {
 
       <section className="border-b border-border/60 bg-muted/30 py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SectionHeading eyebrow="Demo preview" title="What you can try in the demo" />
+          <SectionHeading eyebrow="Commercial Engine" title="Comprehensive Billing Capabilities" />
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               'Browse and search customer records with filters and sorting',
@@ -74,17 +74,14 @@ export default function BillingPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <Alert>
-            <AlertTitle>Demonstration notice</AlertTitle>
-            <AlertDescription>
-              The billing features shown in this demo are simulated. No real payments are processed,
-              no real invoices are issued, and no financial transactions occur. All data is stored
-              locally in your browser. The production platform will integrate with real payment
-              gateways through secured server-side connections.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">PostgreSQL & Stripe Integrated Billing</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              Production billing is powered by PostgreSQL with Row-Level Security, authoritative server-side pricing derivation, and Stripe checkout with replay-protected webhook signature verification.
             </AlertDescription>
           </Alert>
           <div className="mt-8 text-center">
-            <Button asChild size="lg"><Link href="/demo/invoices">Try the invoices demo <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild size="lg"><Link href="/dashboard/invoices">Open Invoices Console <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>

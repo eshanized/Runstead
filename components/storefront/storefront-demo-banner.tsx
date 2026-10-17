@@ -40,12 +40,12 @@ export function StorefrontDemoBanner({ businessName }: StorefrontDemoBannerProps
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" asChild className="h-7 text-xs bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200">
-            <Link href="/demo/storefront">
+            <Link href="/dashboard/storefront">
               <Edit3 className="mr-1.5 h-3 w-3 text-slate-400" /> Storefront Editor
             </Link>
           </Button>
           <Button size="sm" asChild className="h-7 text-xs bg-emerald-600 text-white hover:bg-emerald-500">
-            <Link href="/demo/overview">
+            <Link href="/dashboard/overview">
               <LayoutDashboard className="mr-1.5 h-3 w-3" /> Reseller Dashboard
             </Link>
           </Button>

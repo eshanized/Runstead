@@ -38,8 +38,8 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
     sticky: true,
     announcementBar: { enabled: false, text: '', dismissible: true },
     navItems: [],
-    primaryCta: { text: 'Get Started', href: '/demo/storefront-preview/hosting', visible: true },
-    secondaryCta: { text: 'Client Portal', href: '/demo/storefront-preview/client/login', visible: true },
+    primaryCta: { text: 'Get Started', href: '/storefront/hosting', visible: true },
+    secondaryCta: { text: 'Client Portal', href: '/client/login', visible: true },
   };
 
   const navItems = (header.navItems || []).filter((item) => item.visible);
@@ -79,7 +79,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo & Brand Identity */}
-          <Link href="/demo/storefront-preview" className="flex items-center gap-3 group">
+          <Link href="/storefront" className="flex items-center gap-3 group">
             {config.branding?.logoUrl ? (
               <img
                 src={config.branding.logoUrl}
@@ -120,7 +120,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
           <div className="hidden items-center gap-3 sm:flex">
             {/* Shopping Cart Button */}
             <Button asChild variant="ghost" size="sm" className="relative text-slate-700 hover:text-slate-900">
-              <Link href="/demo/storefront-preview/cart" aria-label="Shopping Cart">
+              <Link href="/storefront/cart" aria-label="Shopping Cart">
                 <ShoppingCart className="h-4 w-4" />
                 {cartCount > 0 && (
                   <span
@@ -136,7 +136,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
             {/* Client Portal Link */}
             {header.secondaryCta?.visible && (
               <Button asChild variant="ghost" size="sm" className="text-slate-700 hover:text-slate-950 text-xs gap-1.5">
-                <Link href={header.secondaryCta.href || '/demo/storefront-preview/client/login'}>
+                <Link href={header.secondaryCta.href || '/client/login'}>
                   <User className="h-3.5 w-3.5" />
                   {header.secondaryCta.text || 'Client Portal'}
                 </Link>
@@ -151,7 +151,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
                 className="text-white text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity"
                 style={{ backgroundColor: primaryColor }}
               >
-                <Link href={header.primaryCta.href || '/demo/storefront-preview/hosting'}>
+                <Link href={header.primaryCta.href || '/storefront/hosting'}>
                   {header.primaryCta.text || 'Get Started'}
                 </Link>
               </Button>
@@ -161,7 +161,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
           {/* Mobile Hamburger & Cart */}
           <div className="flex items-center gap-2 lg:hidden">
             <Button asChild variant="ghost" size="sm" className="relative p-2">
-              <Link href="/demo/storefront-preview/cart" aria-label="Shopping Cart">
+              <Link href="/storefront/cart" aria-label="Shopping Cart">
                 <ShoppingCart className="h-5 w-5 text-slate-700" />
                 {cartCount > 0 && (
                   <span
@@ -214,7 +214,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
 
                 <div className="space-y-3 pt-6 border-t">
                   <Button asChild variant="outline" className="w-full justify-center gap-2 text-xs" onClick={() => setMobileMenuOpen(false)}>
-                    <Link href="/demo/storefront-preview/client/login">
+                    <Link href="/client/login">
                       <User className="h-4 w-4" />
                       Client Account Portal
                     </Link>
@@ -225,7 +225,7 @@ export function StorefrontNavbar({ config }: StorefrontNavbarProps) {
                     style={{ backgroundColor: primaryColor }}
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <Link href="/demo/storefront-preview/hosting">
+                    <Link href="/storefront/hosting">
                       Browse Hosting Plans <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Link>
                   </Button>

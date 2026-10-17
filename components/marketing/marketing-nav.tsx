@@ -59,7 +59,7 @@ export function MarketingNav() {
             <Link href="/login">Sign in</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href="/demo">Explore Demo</Link>
+            <Link href="/dashboard/overview">Console</Link>
           </Button>
           <Button asChild size="sm">
             <Link href="/register">Get Started</Link>
@@ -103,7 +103,7 @@ export function MarketingNav() {
                 </SheetClose>
                 <SheetClose asChild>
                   <Button asChild variant="secondary">
-                    <Link href="/demo">Explore Demo</Link>
+                    <Link href="/dashboard/overview">Console</Link>
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>

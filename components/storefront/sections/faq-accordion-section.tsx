@@ -23,7 +23,7 @@ export function FaqAccordionSection({ section, config }: FaqAccordionSectionProp
   const faqs = settings.faqs || [
     {
       q: 'How fast is service provisioning after ordering?',
-      a: 'Orders with confirmed simulated payment are provisioned automatically in seconds through our orchestration pipeline. You will receive active credentials immediately.',
+      a: 'Orders with confirmed payment are provisioned automatically in seconds through our orchestration pipeline. You will receive active credentials immediately.',
     },
     {
       q: 'Can I change my billing cycle between monthly and annual?',

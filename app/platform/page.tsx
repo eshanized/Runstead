@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const pillars = [
-  { icon: Users, title: 'Client Management', desc: 'Customer records, service history, billing context, communication logs, and credit balances in one place.', href: '/platform/billing', status: 'demo' as const },
-  { icon: CreditCard, title: 'Billing & Invoicing', desc: 'Recurring billing, invoice generation, payment tracking, refunds, and credit management.', href: '/platform/billing', status: 'demo' as const },
-  { icon: Zap, title: 'Provisioning Automation', desc: 'Automated service lifecycle from order to activation with retry handling and failure visibility.', href: '/platform/automation', status: 'demo' as const },
-  { icon: Globe, title: 'Domain Management', desc: 'Domain search, registration workflows, DNS management, and renewal tracking.', href: '/platform/domains', status: 'planned' as const },
-  { icon: Server, title: 'Hosting Control', desc: 'Shared hosting, VPS management, control panel integration, and resource monitoring.', href: '/platform/hosting', status: 'roadmap' as const },
-  { icon: Store, title: 'White-label Storefront', desc: 'Branded customer portals and storefronts with customizable products and pricing.', href: '/demo/storefront', status: 'demo' as const },
-  { icon: LifeBuoy, title: 'Support System', desc: 'Ticket management, priority routing, internal notes, and customer conversation history.', href: '/demo/tickets', status: 'demo' as const },
-  { icon: BarChart3, title: 'Analytics & Reporting', desc: 'Revenue tracking, customer growth, service distribution, and lifecycle reporting.', href: '/demo/analytics', status: 'demo' as const },
+  { icon: Users, title: 'Client Management', desc: 'Customer records, service history, billing context, communication logs, and credit balances in one place.', href: '/platform/billing', status: 'live' as const },
+  { icon: CreditCard, title: 'Billing & Invoicing', desc: 'Recurring billing, invoice generation, payment tracking, refunds, and credit management.', href: '/platform/billing', status: 'live' as const },
+  { icon: Zap, title: 'Provisioning Automation', desc: 'Automated service lifecycle from order to activation with retry handling and failure visibility.', href: '/platform/automation', status: 'live' as const },
+  { icon: Globe, title: 'Domain Management', desc: 'Domain search, registration workflows, DNS management, and renewal tracking.', href: '/platform/domains', status: 'live' as const },
+  { icon: Server, title: 'Hosting Control', desc: 'Shared hosting, VPS management, control panel integration, and resource monitoring.', href: '/platform/hosting', status: 'live' as const },
+  { icon: Store, title: 'White-label Storefront', desc: 'Branded customer portals and storefronts with customizable products and pricing.', href: '/dashboard/storefront', status: 'live' as const },
+  { icon: LifeBuoy, title: 'Support System', desc: 'Ticket management, priority routing, internal notes, and customer conversation history.', href: '/dashboard/tickets', status: 'live' as const },
+  { icon: BarChart3, title: 'Analytics & Reporting', desc: 'Revenue tracking, customer growth, service distribution, and lifecycle reporting.', href: '/dashboard/analytics', status: 'live' as const },
 ];
 
 export default function PlatformPage() {
@@ -28,7 +28,7 @@ export default function PlatformPage() {
             description="Runstead connects customers, products, billing, provisioning, domains, DNS, hosting, support, and reporting into a unified system with a shared data model."
           />
           <div className="mt-8 flex gap-3 justify-center">
-            <Button asChild><Link href="/demo">Explore Demo</Link></Button>
+            <Button asChild><Link href="/dashboard/overview">Open Platform Console</Link></Button>
             <Button asChild variant="outline"><Link href="/pricing">View Pricing</Link></Button>
           </div>
         </div>

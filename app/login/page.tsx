@@ -40,11 +40,11 @@ export default function LoginPage() {
       toast.success(`Welcome back, ${data.user.name}!`);
       
       if (data.user.isPlatformAdmin) {
-        router.push('/demo/platform-admin');
+        router.push('/dashboard/platform-admin');
       } else if (data.tenants && data.tenants.length > 0) {
-        router.push('/demo/overview');
+        router.push('/dashboard/overview');
       } else {
-        router.push('/demo/overview');
+        router.push('/dashboard/overview');
       }
     } catch {
       setErrorMessage('Network error connecting to authentication server.');
@@ -64,9 +64,8 @@ export default function LoginPage() {
           </span>
           <span>Runstead Platform</span>
         </Link>
-        <Link href="/demo" className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1">
-          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-          Explore Interactive Demo
+        <Link href="/register" className="text-xs font-semibold text-primary hover:underline">
+          Create Reseller Account
         </Link>
       </header>
 
@@ -138,13 +137,6 @@ export default function LoginPage() {
                 Register account
               </Link>
             </p>
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-900 text-left">
-              <strong>Need to test without credentials?</strong> Visitors can explore the{' '}
-              <Link href="/demo" className="underline font-semibold text-amber-950">
-                zero-credential interactive demo
-              </Link>{' '}
-              with populated simulation data.
-            </div>
           </CardFooter>
         </Card>
       </div>

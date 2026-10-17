@@ -174,7 +174,7 @@ export function EditorToolbar({
           variant="ghost"
           className="h-8 text-xs gap-1 text-slate-600 hover:text-slate-900"
         >
-          <Link href="/demo/storefront-preview" target="_blank">
+          <Link href="/storefront" target="_blank">
             <ExternalLink className="h-3.5 w-3.5" />
             <span className="hidden md:inline">Open Live Storefront</span>
           </Link>

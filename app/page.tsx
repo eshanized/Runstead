@@ -49,17 +49,17 @@ export default async function Home() {
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg">
-                  <Link href="/demo">
-                    Explore Interactive Demo
+                  <Link href="/register">
+                    Get Started Free
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
                 <Button asChild variant="outline" size="lg">
-                  <Link href="/platform">Explore the Platform</Link>
+                  <Link href="/dashboard/overview">Launch Platform Console</Link>
                 </Button>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
-                No account required. No credit card. No API key.
+                Enterprise multi-tenant hosting operating platform backed by PostgreSQL & Row-Level Security.
               </p>
             </div>
 
@@ -163,8 +163,8 @@ export default async function Home() {
           </div>
           <div className="mt-8 text-center">
             <Button asChild variant="outline">
-              <Link href="/demo/onboarding">
-                Try the onboarding wizard
+              <Link href="/dashboard/onboarding">
+                Explore the onboarding wizard
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -355,21 +355,21 @@ export default async function Home() {
       <section className="py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-balance">
-            See the platform in action
+            Deploy your hosting platform today
           </h2>
           <p className="mt-4 text-lg text-muted-foreground text-balance">
-            Explore the full interactive demo. Navigate the dashboard, manage customers, create orders,
-            edit DNS zones, customize a storefront, and complete the onboarding wizard — no signup required.
+            Runstead delivers complete multi-tenant operations: customer management, automated provisioning,
+            cPanel/WHM integration, Anycast DNS zone management, and white-label storefronts.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Button asChild size="lg">
-              <Link href="/demo">
-                Launch Interactive Demo
+              <Link href="/register">
+                Start with Runstead
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/contact">Contact the team</Link>
+              <Link href="/dashboard/overview">Open Platform Console</Link>
             </Button>
           </div>
         </div>
@@ -408,7 +408,7 @@ function DashboardMockup() {
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-medium text-muted-foreground">DEMO MODE</div>
+              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">LIVE PLATFORM</div>
               <div className="text-sm font-semibold">CloudVista Hosting</div>
             </div>
             <div className="flex gap-2">

@@ -202,7 +202,7 @@ export function FeaturedPlansSection({ section, config }: FeaturedPlansSectionPr
                     style={{ backgroundColor: primaryColor }}
                   >
                     <Link
-                      href={`/demo/checkout?productId=${product.id}&cycle=${cyclePrice ? cyclePrice.cycle : 'monthly'}`}
+                      href={`/storefront/checkout?productId=${product.id}&cycle=${cyclePrice ? cyclePrice.cycle : 'monthly'}`}
                     >
                       Order Now <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Link>
@@ -219,7 +219,7 @@ export function FeaturedPlansSection({ section, config }: FeaturedPlansSectionPr
                       Add to Cart
                     </Button>
                     <Button asChild variant="ghost" size="sm" className="w-full text-xs h-8 text-slate-600">
-                      <Link href={`/demo/storefront-preview/hosting/${product.id}`}>View Specs</Link>
+                      <Link href={`/storefront/hosting/${product.id}`}>View Specs</Link>
                     </Button>
                   </div>
                 </CardFooter>
@@ -230,7 +230,7 @@ export function FeaturedPlansSection({ section, config }: FeaturedPlansSectionPr
 
         <div className="text-center pt-4">
           <Link
-            href="/demo/storefront-preview/hosting"
+            href="/storefront/hosting"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 underline"
           >
             Compare all hosting packages and technical limits →

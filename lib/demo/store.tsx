@@ -178,6 +178,7 @@ interface DemoContextValue {
   setState: (updater: ((prev: DemoState) => DemoState) | DemoState) => void;
   resetDemo: () => void;
   isHydrated: boolean;
+  syncFromServer: () => Promise<void>;
 }
 
 const DemoContext = createContext<DemoContextValue | null>(null);
@@ -195,6 +196,177 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const isFirstRender = useRef(true);
 
+  const syncServerState = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reseller/sync?tenantId=default');
+      if (!res.ok) return;
+      const d = await res.json();
+
+      setStateInternal((p) => {
+        const next = { ...p };
+
+        if (Array.isArray(d.customers) && d.customers.length > 0) {
+          next.customers = d.customers.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            company: c.company || null,
+            status: c.status || 'active',
+            country: c.country || 'US',
+            createdAt: c.createdAt || new Date().toISOString(),
+            phone: c.phone || null,
+            creditBalance: Number(c.creditBalance || 0),
+            servicesCount: c._count?.services || 0,
+            invoicesCount: c._count?.invoices || 0,
+            totalRevenue: 0,
+            lastActivity: c.createdAt || new Date().toISOString(),
+            activity: [],
+            archived: Boolean(c.archived),
+          }));
+        }
+
+        if (Array.isArray(d.products) && d.products.length > 0) {
+          next.products = d.products.map((pr: any) => ({
+            id: pr.id,
+            name: pr.name,
+            type: pr.type,
+            description: pr.description || '',
+            pricing: Array.isArray(pr.pricing) ? pr.pricing : [{ cycle: 'monthly', price: Number(pr.pricing?.monthly || 19.99) }],
+            setupFee: Number(pr.setupFee || 0),
+            resourceLimits: pr.resourceLimits ? (Array.isArray(pr.resourceLimits) ? pr.resourceLimits : Object.entries(pr.resourceLimits).map(([label, value]) => ({ label, value: String(value) }))) : [],
+            available: pr.available ?? true,
+            addons: pr.addons || [],
+            capabilities: pr.capabilities || ['file_manager', 'databases', 'domain_management', 'dns_zone', 'ssl_certificates', 'backups'],
+            planLimits: pr.planLimits || {},
+          }));
+        }
+
+        if (Array.isArray(d.orders) && d.orders.length > 0) {
+          next.orders = d.orders.map((o: any) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            customerId: o.customerId,
+            customerName: o.customer?.name || 'Customer',
+            productId: o.productId || 'prod_001',
+            productName: o.product?.name || o.productName || 'Standard Hosting Plan',
+            status: o.status,
+            amount: Number(o.amount),
+            billingCycle: o.billingCycle || 'monthly',
+            createdAt: o.createdAt,
+            updatedAt: o.updatedAt,
+            events: [],
+          }));
+        }
+
+        if (Array.isArray(d.invoices) && d.invoices.length > 0) {
+          next.invoices = d.invoices.map((inv: any) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            customerId: inv.customerId,
+            customerName: inv.customer?.name || 'Customer',
+            orderId: inv.orderId || null,
+            status: inv.status,
+            subtotal: Number(inv.subtotal),
+            tax: Number(inv.tax || 0),
+            total: Number(inv.total),
+            currency: inv.currency || 'USD',
+            createdAt: inv.createdAt,
+            dueDate: inv.dueDate || inv.createdAt,
+            paidAt: inv.paidAt || null,
+            items: Array.isArray(inv.items) ? inv.items : [],
+            payments: inv.payments || [],
+          }));
+        }
+
+        if (Array.isArray(d.services) && d.services.length > 0) {
+          next.services = d.services.map((s: any) => ({
+            id: s.id,
+            serviceName: s.serviceName || `Service (${s.domain || 'Site'})`,
+            customerId: s.customerId,
+            customerName: s.customer?.name || 'Customer',
+            productId: s.productId,
+            productName: s.product?.name || s.package || 'Hosting Plan',
+            status: s.status,
+            package: s.package,
+            domain: s.domain || null,
+            createdAt: s.createdAt,
+            nextRenewalDate: s.nextRenewalDate || new Date().toISOString(),
+            billingCycle: s.billingCycle || 'monthly',
+            price: Number(s.price),
+            ipAddress: s.ipAddress || '198.51.100.45',
+            serverHostname: s.serverHostname || 'srv1.runstead.net',
+            username: s.username || 'client',
+            capabilities: ['file_manager', 'databases', 'domain_management', 'dns_zone', 'ssl_certificates', 'backups'],
+            resourceUsage: Array.isArray(s.resourceUsage) ? s.resourceUsage : [],
+            fileSystem: { files: [] },
+            databases: [],
+            databaseUsers: [],
+            emailAccounts: [],
+            emailForwarders: [],
+            emailLogs: [],
+            sslCertificate: { status: 'active', issuer: "Let's Encrypt", autoRenew: true, forceHttps: true },
+            backups: [],
+            logs: [],
+            timeline: [],
+          }));
+        }
+
+        if (Array.isArray(d.tickets) && d.tickets.length > 0) {
+          next.tickets = d.tickets.map((t: any) => ({
+            id: t.id,
+            ticketNumber: t.ticketNumber,
+            customerId: t.customerId,
+            customerName: t.customer?.name || 'Customer',
+            subject: t.subject,
+            category: t.category,
+            priority: t.priority,
+            status: t.status,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            messages: Array.isArray(t.messages) ? t.messages.map((m: any) => ({
+              id: m.id,
+              author: m.author,
+              authorType: m.authorType,
+              message: m.message,
+              timestamp: m.createdAt,
+              isInternal: Boolean(m.isInternal),
+            })) : [],
+          }));
+        }
+
+        if (Array.isArray(d.domains) && d.domains.length > 0) {
+          next.domains = d.domains.map((dom: any) => ({
+            id: dom.id,
+            domain: dom.domain,
+            customerId: dom.customerId,
+            customerName: dom.customerName || (next.customers.find((c) => c.id === dom.customerId)?.name) || 'Customer',
+            registrar: dom.registrar || 'Runstead Registrar',
+            status: dom.status,
+            registeredDate: dom.registeredDate,
+            expiryDate: dom.expiryDate,
+            autoRenew: Boolean(dom.autoRenew),
+            nameservers: dom.nameservers || ['ns1.runstead.net', 'ns2.runstead.net'],
+            dnsZoneId: dom.dnsZoneId || null,
+          }));
+        }
+
+        if (d.tenant) {
+          next.business = {
+            ...next.business,
+            businessName: d.tenant.name || next.business.businessName,
+            currency: d.tenant.currency || next.business.currency,
+            taxRate: d.tenant.taxRate !== undefined ? d.tenant.taxRate : next.business.taxRate,
+            ...(d.tenant.business || {}),
+          };
+        }
+
+        return next;
+      });
+    } catch {
+      // Safe offline fallback
+    }
+  }, []);
+
   // Hydration effect: validate persisted storage safely
   useEffect(() => {
     try {
@@ -210,7 +382,6 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
           setStateInternal(validated);
           localStorage.setItem(CURRENT_STORAGE_VERSION, JSON.stringify(validated));
         } else {
-          // Corrupt or outdated schema — fallback to clean seed data
           localStorage.setItem(CURRENT_STORAGE_VERSION, JSON.stringify(seedData));
           setStateInternal(seedData);
         }
@@ -218,7 +389,6 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
         localStorage.setItem(CURRENT_STORAGE_VERSION, JSON.stringify(seedData));
       }
 
-      // Clear legacy storage keys if present
       for (const legacyKey of LEGACY_STORAGE_KEYS) {
         localStorage.removeItem(legacyKey);
       }
@@ -229,80 +399,10 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Live server sync effect: sync PostgreSQL records when authenticated
+  // Live server sync effect: sync PostgreSQL / SQLite records on mount
   useEffect(() => {
-    let isMounted = true;
-
-    async function syncServerState() {
-      try {
-        const authRes = await fetch('/api/auth/me');
-        if (!authRes.ok) return;
-        const authData = await authRes.json();
-        if (!authData.user || !isMounted) return;
-
-        // Fetch reseller collections if user has tenant permissions
-        if (authData.memberships && authData.memberships.length > 0) {
-          const [custRes, prodRes] = await Promise.allSettled([
-            fetch('/api/reseller/customers'),
-            fetch('/api/reseller/products'),
-          ]);
-
-          if (custRes.status === 'fulfilled' && custRes.value.ok) {
-            const d = await custRes.value.json();
-            if (d.customers && d.customers.length > 0 && isMounted) {
-              setStateInternal((p) => ({
-                ...p,
-                customers: d.customers.map((c: any) => ({
-                  id: c.id,
-                  name: c.name,
-                  email: c.email,
-                  company: c.company || null,
-                  status: c.status || 'active',
-                  country: c.country || 'US',
-                  createdAt: c.createdAt || new Date().toISOString(),
-                  creditBalance: 0,
-                  servicesCount: c._count?.services || 0,
-                  invoicesCount: c._count?.invoices || 0,
-                  totalRevenue: 0,
-                  lastActivity: c.createdAt || new Date().toISOString(),
-                  activity: [],
-                })),
-              }));
-            }
-          }
-
-          if (prodRes.status === 'fulfilled' && prodRes.value.ok) {
-            const d = await prodRes.value.json();
-            if (d.products && d.products.length > 0 && isMounted) {
-              setStateInternal((p) => ({
-                ...p,
-                products: d.products.map((pr: any) => ({
-                  id: pr.id,
-                  name: pr.name,
-                  type: pr.type,
-                  description: pr.description || '',
-                  pricing: Array.isArray(pr.pricing) ? pr.pricing : [{ cycle: 'monthly', price: Number(pr.pricing?.monthly || 19.99) }],
-                  setupFee: Number(pr.setupFee || 0),
-                  resourceLimits: [],
-                  available: pr.available ?? true,
-                  addons: [],
-                })),
-              }));
-            }
-          }
-        }
-      } catch {
-        // Safe offline / unauthenticated handling
-      }
-    }
-
     syncServerState();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
+  }, [syncServerState]);
 
   // Separate persistence effect: avoid performing side effects inside updater callbacks
   useEffect(() => {
@@ -337,7 +437,7 @@ function DemoProviderInternal({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <DemoContext.Provider value={{ state, setState, resetDemo, isHydrated }}>
+    <DemoContext.Provider value={{ state, setState, resetDemo, isHydrated, syncFromServer: syncServerState }}>
       {children}
     </DemoContext.Provider>
   );
@@ -351,6 +451,7 @@ export function useDemo(): DemoContextValue {
       setState: () => {},
       resetDemo: () => {},
       isHydrated: false,
+      syncFromServer: async () => {},
     };
   }
   return ctx;

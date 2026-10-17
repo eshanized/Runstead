@@ -19,9 +19,9 @@ export function SupportCtaSection({ section, config }: SupportCtaSectionProps) {
     settings.description ||
     'Our hosting engineering team is ready to assist with DNS setup, migration inquiries, or server guidance.';
   const primaryButtonText = settings.primaryButtonText || 'Open a Support Ticket';
-  const primaryButtonHref = settings.primaryButtonHref || '/demo/storefront-preview/support';
+  const primaryButtonHref = settings.primaryButtonHref || '/storefront/support';
   const secondaryButtonText = settings.secondaryButtonText || 'Browse Knowledge Base';
-  const secondaryButtonHref = settings.secondaryButtonHref || '/demo/storefront-preview/knowledge-base';
+  const secondaryButtonHref = settings.secondaryButtonHref || '/storefront/knowledge-base';
 
   return (
     <section className="bg-slate-900 text-white py-16 sm:py-20 border-b border-slate-800">

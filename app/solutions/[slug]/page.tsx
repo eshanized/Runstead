@@ -59,10 +59,10 @@ export default async function SolutionDetailPage({ params }: { params: Promise<{
 
       <section className="py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-balance">Ready to explore?</h2>
-          <p className="mt-4 text-muted-foreground">Try the interactive demo and see how the platform works for your use case.</p>
+          <h2 className="text-3xl font-bold text-balance">Ready to deploy?</h2>
+          <p className="mt-4 text-muted-foreground">Access the platform console and see how the platform works for your use case.</p>
           <div className="mt-8 flex gap-3 justify-center">
-            <Button asChild size="lg"><Link href="/demo">Launch Demo <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild size="lg"><Link href="/dashboard/overview">Open Platform Console <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
             <Button asChild variant="outline" size="lg"><Link href="/pricing">View Pricing</Link></Button>
           </div>
         </div>

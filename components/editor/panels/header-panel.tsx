@@ -32,12 +32,12 @@ export function HeaderPanel({ config, onChange }: HeaderPanelProps) {
     announcementBar: {
       enabled: true,
       text: 'Annual plans include 2 months free + automated SSL.',
-      link: '/demo/storefront-preview/hosting',
+      link: '/storefront/hosting',
       dismissible: true,
     },
     navItems: [],
-    primaryCta: { text: 'Get Started', href: '/demo/storefront-preview/hosting', visible: true },
-    secondaryCta: { text: 'Client Portal', href: '/demo/storefront-preview/client/login', visible: true },
+    primaryCta: { text: 'Get Started', href: '/storefront/hosting', visible: true },
+    secondaryCta: { text: 'Client Portal', href: '/client/login', visible: true },
   };
 
   const navItems = [...(header.navItems || [])].sort((a, b) => a.order - b.order);
@@ -181,7 +181,7 @@ export function HeaderPanel({ config, onChange }: HeaderPanelProps) {
                     },
                   })
                 }
-                placeholder="/demo/storefront-preview/hosting"
+                placeholder="/storefront/hosting"
                 className="h-8 text-xs bg-white"
               />
             </div>
@@ -290,7 +290,7 @@ export function HeaderPanel({ config, onChange }: HeaderPanelProps) {
             <Input
               value={newHref}
               onChange={(e) => setNewHref(e.target.value)}
-              placeholder="Path (e.g. /demo/storefront-preview/vps)"
+              placeholder="Path (e.g. /storefront/vps)"
               className="h-8 text-xs"
             />
           </div>

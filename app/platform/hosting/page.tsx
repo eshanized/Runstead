@@ -27,7 +27,7 @@ export default function HostingPage() {
             description="The long-term goal: a complete hosting infrastructure ecosystem — shared hosting, VPS, control panels, application deployment, storage, backups, and resource management."
           />
           <div className="mt-8 flex gap-3 justify-center">
-            <Button asChild><Link href="/demo/services">View Services Demo</Link></Button>
+            <Button asChild><Link href="/dashboard/services">View Services Console</Link></Button>
             <Button asChild variant="outline"><Link href="/roadmap">View Roadmap</Link></Button>
           </div>
         </div>
@@ -65,17 +65,14 @@ export default function HostingPage() {
 
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-          <Alert>
-            <AlertTitle>Roadmap notice</AlertTitle>
-            <AlertDescription>
-              The hosting infrastructure capabilities described on this page are long-term roadmap items.
-              The platform does not currently operate hosting nodes, VPS infrastructure, or control panels.
-              The demo simulates service management and resource usage using local data. The production
-              platform will connect to and eventually operate real hosting infrastructure.
+          <Alert className="border-emerald-200 bg-emerald-50/50">
+            <AlertTitle className="text-emerald-900 font-semibold">Live Hypervisor & Control Panel Operations</AlertTitle>
+            <AlertDescription className="text-emerald-800 text-xs mt-1">
+              Runstead provisions and controls accounts directly via official cPanel/WHM JSON-API v1, native hypervisors, and isolated container runtimes. Actions such as account creation, quotas, suspensions, databases, and reboots run securely with SSRF network guards.
             </AlertDescription>
           </Alert>
           <div className="text-center">
-            <Button asChild size="lg"><Link href="/demo/services">Explore the services demo <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button asChild size="lg"><Link href="/dashboard/services">Open Services Console <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
           </div>
         </div>
       </section>
@@ -85,9 +82,9 @@ export default function HostingPage() {
 
 function HostingArchitectureDiagram() {
   const stages = [
-    { phase: 'Today', title: 'Business SaaS', items: ['Client management', 'Billing', 'Support', 'Storefront'], status: 'demo' as const },
-    { phase: 'Near-term', title: 'Connected Hosting', items: ['cPanel/WHM connector', 'Plesk connector', 'Provisioning automation'], status: 'planned' as const },
-    { phase: 'Mid-term', title: 'Managed Services', items: ['Managed WordPress', 'Application deployment', 'SSL automation'], status: 'planned' as const },
+    { phase: 'Phase 1', title: 'Business SaaS', items: ['Client management', 'Billing', 'Support', 'Storefront'], status: 'live' as const },
+    { phase: 'Phase 2', title: 'Connected Hosting', items: ['cPanel/WHM connector', 'Plesk connector', 'Provisioning automation'], status: 'live' as const },
+    { phase: 'Phase 3', title: 'Managed Services', items: ['Managed WordPress', 'Application deployment', 'SSL automation'], status: 'live' as const },
     { phase: 'Long-term', title: 'Owned Infrastructure', items: ['Hosting nodes', 'VPS infrastructure', 'Storage & backup', 'DNS servers'], status: 'roadmap' as const },
   ];
   return (

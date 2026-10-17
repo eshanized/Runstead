@@ -110,7 +110,7 @@ export function ManagedHostingSection({ section, config }: ManagedHostingSection
                       className="w-full text-white text-xs font-semibold h-9 shadow-sm"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      <Link href={`/demo/checkout?productId=${prod.id}&cycle=${prod.pricing[0]?.cycle || 'monthly'}`}>
+                      <Link href={`/storefront/checkout?productId=${prod.id}&cycle=${prod.pricing[0]?.cycle || 'monthly'}`}>
                         Order Now
                       </Link>
                     </Button>

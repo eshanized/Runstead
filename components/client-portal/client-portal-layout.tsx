@@ -56,16 +56,16 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {}
     setState((prev) => ({ ...prev, activeClientCustomerId: null }));
-    router.push('/demo/storefront-preview/client/login');
+    router.push('/client/login');
   }
 
   const navLinks = [
-    { label: 'Overview', href: '/demo/storefront-preview/client/dashboard', icon: LayoutDashboard },
-    { label: 'My Services', href: '/demo/storefront-preview/client/services', icon: Server },
-    { label: 'My Domains', href: '/demo/storefront-preview/client/domains', icon: Globe },
-    { label: 'Invoices & Billing', href: '/demo/storefront-preview/client/invoices', icon: FileText },
-    { label: 'Support Tickets', href: '/demo/storefront-preview/client/tickets', icon: LifeBuoy },
-    { label: 'Account Profile', href: '/demo/storefront-preview/client/profile', icon: User },
+    { label: 'Overview', href: '/client/dashboard', icon: LayoutDashboard },
+    { label: 'My Services', href: '/client/services', icon: Server },
+    { label: 'My Domains', href: '/client/domains', icon: Globe },
+    { label: 'Invoices & Billing', href: '/client/invoices', icon: FileText },
+    { label: 'Support Tickets', href: '/client/tickets', icon: LifeBuoy },
+    { label: 'Account Profile', href: '/client/profile', icon: User },
   ];
 
   return (
@@ -83,12 +83,12 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
 
           <div className="flex items-center gap-2">
             <Button asChild size="sm" variant="ghost" className="h-6 text-[11px] text-slate-300 hover:text-white hover:bg-slate-850">
-              <Link href="/demo/storefront-preview">
+              <Link href="/storefront">
                 <ArrowLeft className="mr-1 h-3 w-3" /> Storefront
               </Link>
             </Button>
             <Button asChild size="sm" variant="ghost" className="h-6 text-[11px] text-slate-300 hover:text-white hover:bg-slate-850">
-              <Link href="/demo/overview">
+              <Link href="/dashboard/overview">
                 Reseller Dashboard
               </Link>
             </Button>
@@ -100,7 +100,7 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
       <header className="border-b bg-white sticky top-0 z-30 shadow-xs">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-8">
-            <Link href="/demo/storefront-preview/client/dashboard" className="flex items-center gap-2.5">
+            <Link href="/client/dashboard" className="flex items-center gap-2.5">
               <span
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shadow-xs"
                 style={{ backgroundColor: primaryColor }}
@@ -165,17 +165,17 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/demo/storefront-preview/client/profile">
+                  <Link href="/client/profile">
                     <User className="mr-2 h-3.5 w-3.5" /> Edit Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/demo/storefront-preview/client/invoices">
+                  <Link href="/client/invoices">
                     <FileText className="mr-2 h-3.5 w-3.5" /> Invoices & Receipts
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/demo/storefront-preview/client/tickets">
+                  <Link href="/client/tickets">
                     <LifeBuoy className="mr-2 h-3.5 w-3.5" /> Open Support Ticket
                   </Link>
                 </DropdownMenuItem>
@@ -218,16 +218,16 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
         <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>{config.businessName} Customer Portal • PostgreSQL Encrypted & Isolated</span>
           <div className="flex items-center gap-3 text-slate-400">
-            <Link href="/demo/storefront-preview" className="hover:text-slate-700">Public Storefront</Link>
+            <Link href="/storefront" className="hover:text-slate-700">Public Storefront</Link>
             <span>•</span>
-            <Link href="/demo/storefront-preview/support" className="hover:text-slate-700">Support Desk</Link>
+            <Link href="/storefront/support" className="hover:text-slate-700">Support Desk</Link>
             <span>•</span>
-            <Link href="/demo/overview" className="hover:text-slate-700">Reseller Dashboard</Link>
+            <Link href="/dashboard/overview" className="hover:text-slate-700">Reseller Dashboard</Link>
           </div>
         </div>
       </footer>
 
-      {/* Product Simulation Explorer Tour Guide */}
+      {/* Platform Explorer Tour Guide */}
       <DemoTourGuideDialog open={tourOpen} onOpenChange={setTourOpen} />
     </div>
   );

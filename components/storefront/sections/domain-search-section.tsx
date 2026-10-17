@@ -179,14 +179,14 @@ export function DomainSearchSection({ section, config }: DomainSearchSectionProp
                       className="text-white text-xs font-semibold flex-1 sm:flex-initial"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      <Link href={`/demo/checkout?productId=prod_005&domain=${encodeURIComponent(searchedDomain)}&cycle=annually`}>
+                      <Link href={`/storefront/checkout?productId=prod_005&domain=${encodeURIComponent(searchedDomain)}&cycle=annually`}>
                         Register Now <ArrowRight className="ml-1 h-3.5 w-3.5" />
                       </Link>
                     </Button>
                   </div>
                 ) : (
                   <Button size="sm" variant="outline" asChild className="text-xs bg-white">
-                    <Link href={`/demo/storefront-preview/domains/transfer?domain=${encodeURIComponent(searchedDomain)}`}>
+                    <Link href={`/storefront/domains/transfer?domain=${encodeURIComponent(searchedDomain)}`}>
                       Transfer to Us
                     </Link>
                   </Button>
@@ -198,7 +198,7 @@ export function DomainSearchSection({ section, config }: DomainSearchSectionProp
 
         <div className="pt-2 text-xs text-slate-400 flex flex-wrap items-center justify-center gap-4">
           <span>Already own a domain elsewhere?</span>
-          <Link href="/demo/storefront-preview/domains/transfer" className="font-semibold text-slate-700 hover:text-slate-900 underline">
+          <Link href="/storefront/domains/transfer" className="font-semibold text-slate-700 hover:text-slate-900 underline">
             Start a domain transfer →
           </Link>
         </div>
