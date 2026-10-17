@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { User, Mail, Phone, Building2, Save, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
-import { formatCurrency } from '@/lib/demo/selectors';
-import * as workflows from '@/lib/demo/workflows';
+import { usePlatformStore } from '@/lib/store/platform-store';
+import { formatCurrency } from '@/lib/platform/selectors';
+import * as workflows from '@/lib/platform/workflows';
 import { ClientPortalLayout } from '@/components/client-portal/client-portal-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,18 +14,18 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 export default function ClientProfilePage() {
-  const { state, setState } = useDemo();
+  const { state, updateCustomer } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
   const activeCustomerId = state.activeClientCustomerId || state.customers[0]?.id;
-  const customer = state.customers.find((c) => c.id === activeCustomerId) || state.customers[0];
+  const customer = state.customers.find((c: any) => c.id === activeCustomerId) || state.customers[0];
 
   const [name, setName] = useState(customer?.name || '');
   const [phone, setPhone] = useState(customer?.phone || '');
   const [company, setCompany] = useState(customer?.company || '');
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!customer) return;
     if (!name.trim()) {
@@ -34,14 +34,12 @@ export default function ClientProfilePage() {
     }
 
     try {
-      setState((prev) =>
-        workflows.clientUpdateProfile(prev, customer.id, {
-          name,
-          phone,
-          company,
-        })
-      );
-      toast.success('Account profile updated successfully!');
+      await updateCustomer(customer.id, {
+        name,
+        phone,
+        company,
+      });
+      toast.success('Account profile updated and persisted to PostgreSQL!');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile');
     }

@@ -3,12 +3,12 @@ import { test, expect } from '@playwright/test';
 test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to initialize app and local storage
-    await page.goto('/demo/overview');
+    await page.goto('/dashboard/overview');
     await page.waitForLoadState('networkidle');
   });
 
   test('1. Storefront Editor: 3-Region Visual Builder, Viewport Toggles, Theme Switching, and Publish Semantics', async ({ page }) => {
-    await page.goto('/demo/storefront');
+    await page.goto('/dashboard/storefront');
     await page.waitForLoadState('networkidle');
 
     // Verify 3-region workspace structure
@@ -64,13 +64,13 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
 
   test('2. Multi-Page Storefront Catalog, Domain Marketplace, and Dynamic Pages', async ({ page }) => {
     // 1. Home Page
-    await page.goto('/demo/storefront-preview');
+    await page.goto('/storefront');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('input[placeholder*="ideal domain"]')).toBeVisible();
 
     // 2. Hosting Catalog
-    await page.goto('/demo/storefront-preview/hosting');
+    await page.goto('/storefront/hosting');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('h1:has-text("Hosting Catalog")')).toBeVisible();
 
@@ -82,7 +82,7 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     }
 
     // 3. Product Details Page
-    await page.goto('/demo/storefront-preview/hosting/prod_001');
+    await page.goto('/storefront/hosting/prod_001');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('button:has-text("Add to Shopping Cart")')).toBeVisible();
@@ -92,12 +92,12 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     await expect(page.locator('text=added to shopping cart!')).toBeVisible();
 
     // 4. Cloud VPS Catalog
-    await page.goto('/demo/storefront-preview/vps');
+    await page.goto('/storefront/vps');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('h1:has-text("Cloud VPS")')).toBeVisible();
 
     // 5. Domain Marketplace & Transfer
-    await page.goto('/demo/storefront-preview/domains');
+    await page.goto('/storefront/domains');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Domain Registration & Marketplace')).toBeVisible();
 
@@ -107,35 +107,35 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     await expect(page.locator('text=Available').first()).toBeVisible();
 
     // Domain transfer page
-    await page.goto('/demo/storefront-preview/domains/transfer');
+    await page.goto('/storefront/domains/transfer');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Domain Transfer Assistance')).toBeVisible();
 
     // 6. Status, Knowledge Base, Contact, and Legal Pages
-    await page.goto('/demo/storefront-preview/status');
+    await page.goto('/storefront/status');
     await expect(page.locator('text=Operational Status').first()).toBeVisible();
 
-    await page.goto('/demo/storefront-preview/knowledge-base');
+    await page.goto('/storefront/knowledge-base');
     await expect(page.locator('text=Knowledge Base').first()).toBeVisible();
 
-    await page.goto('/demo/storefront-preview/contact');
+    await page.goto('/storefront/contact');
     await expect(page.locator('text=Contact Our Team').first()).toBeVisible();
 
-    await page.goto('/demo/storefront-preview/privacy');
+    await page.goto('/storefront/privacy');
     await expect(page.locator('text=Privacy Policy').first()).toBeVisible();
 
-    await page.goto('/demo/storefront-preview/terms');
+    await page.goto('/storefront/terms');
     await expect(page.locator('text=Terms of Service').first()).toBeVisible();
   });
 
   test('3. Multi-Item Shopping Cart and Simulated Checkout Flow', async ({ page }) => {
     // Start with a product in cart
-    await page.goto('/demo/storefront-preview/hosting/prod_001');
+    await page.goto('/storefront/hosting/prod_001');
     await page.waitForLoadState('networkidle');
     await page.click('button:has-text("Add to Shopping Cart")');
 
     // Go to shopping cart
-    await page.goto('/demo/storefront-preview/cart');
+    await page.goto('/storefront/cart');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=Shopping Cart').first()).toBeVisible();
@@ -165,7 +165,7 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
 
   test('4. Authenticated Customer Portal: Isolated Telemetry, Server Controls, Invoices, and Reseller Helpdesk Sync', async ({ page }) => {
     // 1. Customer Login simulation
-    await page.goto('/demo/storefront-preview/client/login');
+    await page.goto('/client/login');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=Client Portal Access')).toBeVisible();
@@ -180,7 +180,7 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     await expect(page.locator('text=Active Services')).toBeVisible();
 
     // 2. Client Services & Power Controls
-    await page.goto('/demo/storefront-preview/client/services');
+    await page.goto('/client/services');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Active Services & Hosting Accounts')).toBeVisible();
 
@@ -192,17 +192,17 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     }
 
     // 3. Client Domains
-    await page.goto('/demo/storefront-preview/client/domains');
+    await page.goto('/client/domains');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Registered Domains & DNS Management')).toBeVisible();
 
     // 4. Client Invoices & Simulated Payment
-    await page.goto('/demo/storefront-preview/client/invoices');
+    await page.goto('/client/invoices');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Billing History & Invoices')).toBeVisible();
 
     // 5. Client Support Tickets: Open Ticket & Check Reseller Synchronization
-    await page.goto('/demo/storefront-preview/client/tickets');
+    await page.goto('/client/tickets');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Support Desk & Inquiries')).toBeVisible();
 
@@ -220,7 +220,7 @@ test.describe('Runstead Storefront Experience 2.0 End-to-End Suite', () => {
     await expect(page.locator('text=Support ticket opened successfully')).toBeVisible();
 
     // 6. Verify Ticket appears in Reseller Dashboard
-    await page.goto('/demo/tickets');
+    await page.goto('/dashboard/tickets');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('text=Need assistance configuring DKIM TXT record')).toBeVisible();
   });

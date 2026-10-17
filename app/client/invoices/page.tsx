@@ -10,10 +10,10 @@ import {
   Eye,
   Download,
 } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
-import { formatCurrency } from '@/lib/demo/selectors';
-import * as workflows from '@/lib/demo/workflows';
-import type { Invoice } from '@/lib/demo/types';
+import { usePlatformStore } from '@/lib/store/platform-store';
+import { formatCurrency } from '@/lib/platform/selectors';
+import * as workflows from '@/lib/platform/workflows';
+import type { Invoice } from '@/lib/types/platform';
 import { ClientPortalLayout } from '@/components/client-portal/client-portal-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,20 +29,29 @@ import {
 import { toast } from 'sonner';
 
 export default function ClientInvoicesPage() {
-  const { state, setState } = useDemo();
+  const { state, syncFromServer } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
   const activeCustomerId = state.activeClientCustomerId || state.customers[0]?.id;
-  const customer = state.customers.find((c) => c.id === activeCustomerId) || state.customers[0];
+  const customer = state.customers.find((c: any) => c.id === activeCustomerId) || state.customers[0];
 
-  const myInvoices = state.invoices.filter((i) => i.customerId === customer?.id);
+  const myInvoices = state.invoices.filter((i: any) => i.customerId === customer?.id);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
-  function handlePay(invoiceId: string) {
+  async function handlePay(invoiceId: string) {
     if (!customer) return;
     try {
-      setState((prev) => workflows.clientPayInvoice(prev, invoiceId, customer.id));
+      const res = await fetch(`/api/portal/invoices/${invoiceId}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'card' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Payment processing failed');
+      }
+      await syncFromServer();
       toast.success('Payment authorized and invoice settled successfully!');
       if (selectedInvoice && selectedInvoice.id === invoiceId) {
         setSelectedInvoice((prev) => (prev ? { ...prev, status: 'paid' } : null));

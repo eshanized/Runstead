@@ -297,6 +297,26 @@ export async function settleInvoice(
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId) as any;
     if (!invoice) throw new Error(`Invoice not found: ${invoiceId}`);
 
+    if (invoice.status === 'paid') {
+      const existingPayment = db.prepare('SELECT * FROM payments WHERE invoice_id = ?').get(invoiceId) as any;
+      return {
+        invoice: {
+          ...invoice,
+          status: 'paid',
+          paidDate: invoice.paid_at ? new Date(invoice.paid_at) : new Date(),
+        } as any,
+        payment: (existingPayment || {
+          id: 'pay_existing',
+          tenantId: resolvedTenant,
+          invoiceId,
+          amount: paymentInput.amount,
+          method: paymentInput.method,
+          createdAt: new Date(),
+        }) as any,
+        alreadySettled: true,
+      };
+    }
+
     const now = new Date().toISOString();
     const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 

@@ -4,17 +4,16 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, ArrowRight, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
+import { usePlatformStore } from '@/lib/store/platform-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 export default function ClientLoginPage() {
   const router = useRouter();
-  const { state, setState } = useDemo();
+  const { state } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
@@ -43,32 +42,7 @@ export default function ClientLoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Check for matching customer in state
-        const matched = state.customers.find(
-          (c) => c.email.toLowerCase() === email.trim().toLowerCase()
-        );
-        if (matched) {
-          setState((prev) => ({
-            ...prev,
-            activeClientCustomerId: matched.id,
-          }));
-          toast.success(`Signed in as ${matched.name}`);
-          router.push('/client/dashboard');
-          return;
-        }
         throw new Error(data.error || 'Invalid credentials');
-      }
-
-      // Live authentication succeeded
-      const customer = state.customers.find(
-        (c) => c.email.toLowerCase() === email.trim().toLowerCase()
-      ) || state.customers[0];
-
-      if (customer) {
-        setState((prev) => ({
-          ...prev,
-          activeClientCustomerId: customer.id,
-        }));
       }
 
       toast.success(`Welcome back, ${data.user?.name || 'Customer'}!`);
@@ -82,11 +56,6 @@ export default function ClientLoginPage() {
     }
   }
 
-  function handleFillAccount(sampleEmail: string) {
-    setEmail(sampleEmail);
-    setPassword('RunsteadPassword123!');
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans">
       {/* Top Bar */}
@@ -94,44 +63,37 @@ export default function ClientLoginPage() {
         <Link href="/storefront" className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to {config.businessName} Storefront
         </Link>
-        <Badge variant="outline" className="border-emerald-300 text-emerald-800 bg-emerald-50 text-[11px] flex items-center gap-1">
-          <ShieldCheck className="h-3 w-3 text-emerald-600" /> Secure Customer Portal
-        </Badge>
+        <Link href="/dashboard/overview" className="text-xs text-slate-500 hover:text-slate-800">
+          Reseller Portal →
+        </Link>
       </div>
 
-      <div className="mx-auto max-w-md w-full px-4 py-12 space-y-6">
-        <div className="text-center space-y-2">
-          <div
-            className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-md font-bold text-lg"
-            style={{ backgroundColor: primaryColor }}
-          >
-            {config.logoText || config.businessName.slice(0, 2).toUpperCase()}
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            {config.businessName} Client Portal
-          </h1>
-          <p className="text-xs text-slate-500">
-            Log in to manage your active hosting services, DNS zones, domains, and billing.
-          </p>
-        </div>
-
-        {errorMsg && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-            {errorMsg}
-          </div>
-        )}
-
-        <Card className="border border-slate-200 bg-white shadow-xs">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold text-slate-900">
-              Sign In to Your Account
+      {/* Main Login Card */}
+      <div className="mx-auto max-w-md w-full px-4 py-8">
+        <Card className="shadow-lg border-slate-200">
+          <CardHeader className="space-y-1 text-center pb-4">
+            <div
+              className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-md mb-2 font-bold text-lg"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-xl font-bold tracking-tight text-slate-900">
+              Customer Hosting Control Center
             </CardTitle>
-            <CardDescription className="text-xs">
-              Enter your customer email and password to access your services.
+            <CardDescription className="text-xs text-slate-500">
+              Sign in with your verified account credentials to manage your hosting services, domains, DNS zones, and invoices.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
-            <form onSubmit={handleLogin} className="space-y-4">
+            {errorMsg && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                {errorMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-3.5">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Email Address</Label>
                 <div className="relative">
@@ -188,29 +150,18 @@ export default function ClientLoginPage() {
             </form>
           </CardContent>
 
-          <CardFooter className="pt-3 border-t border-slate-100 flex flex-col gap-2.5 bg-slate-50/50">
-            <span className="text-[11px] font-semibold text-slate-500 w-full text-left">
-              Quick Fill Registered Customers:
-            </span>
-            <div className="grid grid-cols-2 gap-2 w-full">
-              {state.customers.slice(0, 4).map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => handleFillAccount(c.email)}
-                  className="p-2 rounded-lg border border-slate-200 bg-white hover:border-slate-300 text-left text-[11px] transition-colors"
-                >
-                  <div className="font-semibold text-slate-800 truncate">{c.name}</div>
-                  <div className="text-[10px] text-slate-400 truncate">{c.email}</div>
-                </button>
-              ))}
-            </div>
+          <CardFooter className="pt-3 border-t border-slate-100 flex justify-between items-center bg-slate-50/50 text-xs text-slate-500">
+            <span>New customer?</span>
+            <Link href="/storefront/hosting" className="font-semibold text-slate-800 hover:underline">
+              Order a hosting plan →
+            </Link>
           </CardFooter>
         </Card>
       </div>
 
-      <div className="py-6 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
-        {config.businessName} • Production Hosting Operating Platform
+      {/* Footer */}
+      <div className="text-center py-4 border-t border-slate-200 text-xs text-slate-400">
+        Secured by Runstead Infrastructure Engine • Authenticated Multi-Tenant Access
       </div>
     </div>
   );

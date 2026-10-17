@@ -1,11 +1,12 @@
 'use client';
 
 export {
-  DemoProvider as ResellerStoreProvider,
-  useDemo as useResellerStore,
+  PlatformProvider as ResellerStoreProvider,
+  usePlatformStore as useResellerStore,
+  usePlatformStore as useDemo,
   CURRENT_STORAGE_VERSION,
   generateId,
   validateStoredDemoState,
-} from '@/lib/demo/store';
+} from './platform-store';
 
-export type { DemoState as ResellerState } from '@/lib/demo/types';
+export type { PlatformState as ResellerState, PlatformState as DemoState } from '@/lib/types/platform';

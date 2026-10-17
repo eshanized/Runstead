@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Globe, ShieldCheck, RefreshCw, Plus, ExternalLink, Check } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
+import { usePlatformStore } from '@/lib/store/platform-store';
 import { ClientPortalLayout } from '@/components/client-portal/client-portal-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,23 +12,31 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 export default function ClientDomainsPage() {
-  const { state, setState } = useDemo();
+  const { state, syncFromServer } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
   const activeCustomerId = state.activeClientCustomerId || state.customers[0]?.id;
-  const customer = state.customers.find((c) => c.id === activeCustomerId) || state.customers[0];
+  const customer = state.customers.find((c: any) => c.id === activeCustomerId) || state.customers[0];
 
-  const myDomains = state.domains.filter((d) => d.customerId === customer?.id);
+  const myDomains = state.domains.filter((d: any) => d.customerId === customer?.id);
 
-  function handleToggleAutoRenew(domainId: string, current: boolean) {
-    setState((prev) => ({
-      ...prev,
-      domains: prev.domains.map((d) =>
-        d.id === domainId ? { ...d, autoRenew: !current } : d
-      ),
-    }));
-    toast.success(`Auto-renewal ${!current ? 'enabled' : 'disabled'} for domain.`);
+  async function handleToggleAutoRenew(domainId: string, current: boolean) {
+    try {
+      const res = await fetch('/api/portal/domains', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainId, autoRenew: !current }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to update auto-renewal');
+      }
+      await syncFromServer();
+      toast.success(`Auto-renewal ${!current ? 'enabled' : 'disabled'} for domain in PostgreSQL.`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update auto-renewal');
+    }
   }
 
   return (

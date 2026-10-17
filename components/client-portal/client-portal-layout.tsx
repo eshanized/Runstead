@@ -18,10 +18,9 @@ import {
   Users,
   Compass,
 } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
+import { usePlatformStore } from '@/lib/store/platform-store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DemoTourGuideDialog } from '@/components/demo/demo-tour-guide';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,16 +37,15 @@ interface ClientPortalLayoutProps {
 export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { state, setState } = useDemo();
-  const [tourOpen, setTourOpen] = useState(false);
+  const { state, setState } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
   const activeCustomerId = state.activeClientCustomerId || state.customers[0]?.id;
-  const customer = state.customers.find((c) => c.id === activeCustomerId) || state.customers[0];
+  const customer = state.customers.find((c: any) => c.id === activeCustomerId) || state.customers[0];
 
   function handleSwitchCustomer(custId: string) {
-    setState((prev) => ({ ...prev, activeClientCustomerId: custId }));
+    setState((prev: any) => ({ ...prev, activeClientCustomerId: custId }));
     router.refresh();
   }
 
@@ -55,7 +53,7 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {}
-    setState((prev) => ({ ...prev, activeClientCustomerId: null }));
+    setState((prev: any) => ({ ...prev, activeClientCustomerId: null }));
     router.push('/client/login');
   }
 
@@ -226,9 +224,6 @@ export function ClientPortalLayout({ children }: ClientPortalLayoutProps) {
           </div>
         </div>
       </footer>
-
-      {/* Platform Explorer Tour Guide */}
-      <DemoTourGuideDialog open={tourOpen} onOpenChange={setTourOpen} />
     </div>
   );
 }

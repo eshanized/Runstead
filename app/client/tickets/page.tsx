@@ -11,10 +11,10 @@ import {
   Shield,
   CheckCircle2,
 } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
-import { relativeTime } from '@/lib/demo/selectors';
-import * as workflows from '@/lib/demo/workflows';
-import type { Ticket, TicketPriority } from '@/lib/demo/types';
+import { usePlatformStore } from '@/lib/store/platform-store';
+import { relativeTime } from '@/lib/platform/selectors';
+import * as workflows from '@/lib/platform/workflows';
+import type { Ticket, TicketPriority } from '@/lib/types/platform';
 import { ClientPortalLayout } from '@/components/client-portal/client-portal-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,14 +34,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 
 export default function ClientTicketsPage() {
-  const { state, setState } = useDemo();
+  const { state, syncFromServer } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
   const activeCustomerId = state.activeClientCustomerId || state.customers[0]?.id;
-  const customer = state.customers.find((c) => c.id === activeCustomerId) || state.customers[0];
+  const customer = state.customers.find((c: any) => c.id === activeCustomerId) || state.customers[0];
 
-  const myTickets = state.tickets.filter((t) => t.customerId === customer?.id);
+  const myTickets = state.tickets.filter((t: any) => t.customerId === customer?.id);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     myTickets[0]?.id || null
   );
@@ -56,9 +56,9 @@ export default function ClientTicketsPage() {
   // Reply message state
   const [replyText, setReplyText] = useState('');
 
-  const currentTicket = state.tickets.find((t) => t.id === selectedTicketId);
+  const currentTicket = state.tickets.find((t: any) => t.id === selectedTicketId);
 
-  function handleCreateTicket(e: React.FormEvent) {
+  async function handleCreateTicket(e: React.FormEvent) {
     e.preventDefault();
     if (!customer) return;
     if (!subject.trim() || !message.trim()) {
@@ -67,31 +67,49 @@ export default function ClientTicketsPage() {
     }
 
     try {
-      const result = workflows.clientOpenTicket(state, {
-        customerId: customer.id,
-        subject,
-        category,
-        priority,
-        message,
+      const res = await fetch('/api/portal/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: subject.trim(),
+          category,
+          priority,
+          message: message.trim(),
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to open ticket');
+      }
 
-      setState(() => result.state);
-      setSelectedTicketId(result.ticket.id);
+      await syncFromServer();
+      if (data.ticket?.id) {
+        setSelectedTicketId(data.ticket.id);
+      }
       setNewTicketOpen(false);
       setSubject('');
       setMessage('');
-      toast.success('Support ticket opened successfully');
+      toast.success('Support ticket opened and stored in PostgreSQL.');
     } catch (err: any) {
       toast.error(err.message || 'Failed to open ticket');
     }
   }
 
-  function handleSendReply(e: React.FormEvent) {
+  async function handleSendReply(e: React.FormEvent) {
     e.preventDefault();
     if (!customer || !selectedTicketId || !replyText.trim()) return;
 
     try {
-      setState((prev) => workflows.clientReplyTicket(prev, selectedTicketId, customer.id, replyText));
+      const res = await fetch(`/api/portal/tickets/${selectedTicketId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: replyText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send reply');
+      }
+      await syncFromServer();
       setReplyText('');
       toast.success('Reply submitted to support staff!');
     } catch (err: any) {

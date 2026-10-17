@@ -17,8 +17,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { MarketingLayout } from '@/components/marketing/marketing-layout';
-import { useDemo } from '@/lib/demo/store';
-import * as workflows from '@/lib/demo/workflows';
+import { usePlatformStore } from '@/lib/store/platform-store';
+import * as workflows from '@/lib/platform/workflows';
 import { pricingPlans } from '@/lib/config/pricing';
 import { siteConfig } from '@/lib/config/site';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ const businessCategories = [
 function LaunchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, setState, resetDemo } = useDemo();
+  const { state, setState, syncFromServer } = usePlatformStore();
 
   const initialPlanParam = searchParams.get('plan') || 'Growth';
   const matchedPlan = pricingPlans.find((p) => p.name.toLowerCase() === initialPlanParam.toLowerCase()) || pricingPlans[2];
@@ -139,13 +139,13 @@ function LaunchContent() {
           </div>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">Launch Your Hosting Business</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Complete this simulated signup journey to create a demo tenant context and enter your reseller dashboard.
+            Complete this onboarding journey to provision your reseller tenant context and enter your hosting dashboard.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => resetDemo()}>
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset Demo
+          <Button variant="ghost" size="sm" onClick={() => syncFromServer()}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Refresh State
           </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href="/pricing">View Plans</Link>

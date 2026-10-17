@@ -142,7 +142,7 @@ export const canonicalRoadmapTasks: RoadmapTask[] = [
     closedAt: '2026-09-10T11:15:00Z',
     updatedAt: '2026-09-10T11:15:00Z',
     url: 'https://github.com/eshanized/Runstead/issues/4',
-    evidence: 'components/demo/command-search.tsx',
+    evidence: 'components/dashboard/dashboard-search.tsx',
     pullRequest: null,
   },
   {
@@ -199,7 +199,7 @@ export const canonicalRoadmapTasks: RoadmapTask[] = [
     closedAt: '2026-09-13T10:00:00Z',
     updatedAt: '2026-09-13T10:00:00Z',
     url: 'https://github.com/eshanized/Runstead/issues/7',
-    evidence: 'components/demo/demo-shell.tsx',
+    evidence: 'components/dashboard/dashboard-shell.tsx',
     pullRequest: null,
   },
   {

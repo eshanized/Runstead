@@ -13,9 +13,9 @@ import {
   ExternalLink,
   ShieldCheck,
 } from 'lucide-react';
-import { useDemo } from '@/lib/demo/store';
-import { formatCurrency, relativeTime } from '@/lib/demo/selectors';
-import * as workflows from '@/lib/demo/workflows';
+import { usePlatformStore } from '@/lib/store/platform-store';
+import { formatCurrency, relativeTime } from '@/lib/platform/selectors';
+import * as workflows from '@/lib/platform/workflows';
 import { ClientPortalLayout } from '@/components/client-portal/client-portal-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,27 +23,36 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 
 export default function ClientDashboardPage() {
-  const { state, setState } = useDemo();
+  const { state, syncFromServer } = usePlatformStore();
   const config = state.publishedStorefront || state.storefront;
   const primaryColor = config.primaryColor || '#0f5fff';
 
   const activeCustomerId = state.activeClientCustomerId || state.customers[0]?.id;
-  const customer = state.customers.find((c) => c.id === activeCustomerId) || state.customers[0];
+  const customer = state.customers.find((c: any) => c.id === activeCustomerId) || state.customers[0];
 
   // Isolated customer records
-  const myServices = state.services.filter((s) => s.customerId === customer?.id);
-  const myDomains = state.domains.filter((d) => d.customerId === customer?.id);
-  const myInvoices = state.invoices.filter((i) => i.customerId === customer?.id);
-  const myTickets = state.tickets.filter((t) => t.customerId === customer?.id);
+  const myServices = state.services.filter((s: any) => s.customerId === customer?.id);
+  const myDomains = state.domains.filter((d: any) => d.customerId === customer?.id);
+  const myInvoices = state.invoices.filter((i: any) => i.customerId === customer?.id);
+  const myTickets = state.tickets.filter((t: any) => t.customerId === customer?.id);
 
-  const unpaidInvoices = myInvoices.filter((i) => i.status === 'sent' || i.status === 'overdue');
-  const openTickets = myTickets.filter((t) => t.status === 'open' || t.status === 'in_progress');
+  const unpaidInvoices = myInvoices.filter((i: any) => i.status === 'sent' || i.status === 'overdue');
+  const openTickets = myTickets.filter((t: any) => t.status === 'open' || t.status === 'in_progress');
 
-  function handlePayInvoice(invoiceId: string) {
+  async function handlePayInvoice(invoiceId: string) {
     if (!customer) return;
     try {
-      setState((prev) => workflows.clientPayInvoice(prev, invoiceId, customer.id));
-      toast.success('Payment processed successfully! Invoice marked as paid.');
+      const res = await fetch(`/api/portal/invoices/${invoiceId}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'card' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Payment failed');
+      }
+      await syncFromServer();
+      toast.success('Payment settled successfully! Transaction recorded in PostgreSQL.');
     } catch (err: any) {
       toast.error(err.message || 'Payment processing failed');
     }

@@ -257,5 +257,95 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
     assert.ok(sessionUser);
     assert.equal(sessionUser.id, createdUser.id);
   });
+
+  test('11. Customer Portal Invoice Settlement & Provisioning Trigger: settles invoice via gateway', async () => {
+    // Create customer and order
+    const cust = await createCustomer(tenantId, {
+      name: 'Portal Billing Customer',
+      email: `billing_${Date.now()}@test.org`,
+      company: 'Billing Corp',
+      country: 'US',
+    });
+
+    const testProd = await createProduct(tenantId, {
+      name: 'Portal Test Plan',
+      type: 'shared',
+      description: 'Test Hosting Plan',
+      pricing: [{ cycle: 'monthly', price: 49.99 }],
+    });
+
+    const order = await createOrder(tenantId, cust.id, [
+      { productId: testProd.id, cycle: 'monthly', quantity: 1 },
+    ]);
+
+    assert.ok(order.invoice, 'Order creation must generate invoice');
+    assert.equal(order.invoice.status, 'pending');
+
+    // Settle invoice with idempotency
+    const idempotencyKey = `test_portal_idem_${Date.now()}`;
+    const settlement = await settleInvoice(tenantId, order.invoice.id, {
+      amount: 49.99,
+      currency: 'USD',
+      method: 'card',
+      providerTransactionId: `tx_sandbox_${Date.now()}`,
+      idempotencyKey,
+    });
+
+    assert.equal(settlement.invoice.status, 'paid');
+    assert.equal(settlement.alreadySettled, false);
+
+    // Duplicate charge attempt must return alreadySettled: true
+    const duplicate = await settleInvoice(tenantId, order.invoice.id, {
+      amount: 49.99,
+      currency: 'USD',
+      method: 'card',
+      providerTransactionId: `tx_sandbox_dup`,
+      idempotencyKey,
+    });
+    assert.equal(duplicate.alreadySettled, true);
+
+    // Verify invoice in DB
+    const fetchedInvoice = await getInvoiceById(tenantId, order.invoice.id);
+    assert.ok(fetchedInvoice);
+    assert.equal(fetchedInvoice.status, 'paid');
+  });
+
+  test('12. Customer Portal Support Desk Lifecycle: customer ticket creation and staff reply', async () => {
+    const cust = await createCustomer(tenantId, {
+      name: 'Portal Ticket Customer',
+      email: `ticket_${Date.now()}@test.org`,
+      company: 'Ticket Corp',
+      country: 'US',
+    });
+
+    const ticketResult = await createTicket(tenantId, {
+      customerId: cust.id,
+      subject: 'Urgent: SSL Renewal Error on Apex Domain',
+      category: 'ssl',
+      priority: 'high',
+      message: 'The auto-renewal SSL cert is throwing a CAA validation error.',
+      author: cust.name,
+      isCustomer: true,
+    });
+
+    assert.ok(ticketResult.ticket.id);
+    assert.equal(ticketResult.ticket.subject, 'Urgent: SSL Renewal Error on Apex Domain');
+    assert.equal(ticketResult.ticket.status, 'open');
+
+    // Reply as staff
+    const reply = await replyTicket(tenantId, ticketResult.ticket.id, {
+      author: 'Senior Systems Engineer',
+      authorType: 'staff',
+      message: 'We have updated your CAA DNS record to allow Lets Encrypt issuances.',
+    });
+
+    assert.ok(reply.id);
+    assert.equal(reply.authorType, 'staff');
+
+    // List tickets for customer
+    const customerTickets = await listTickets(tenantId, { customerId: cust.id });
+    assert.equal(customerTickets.tickets.length, 1);
+    assert.equal(customerTickets.tickets[0].id, ticketResult.ticket.id);
+  });
 });
 
