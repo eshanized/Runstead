@@ -190,3 +190,8 @@ To maintain absolute credibility with investors and partners:
 - **Clear Status Labels**: Every feature is labeled as `demo` (interactive here), `planned` (targeted for version 1.0 release), or `roadmap` (future infrastructure ambition).
 - **Indicative Financials**: All pricing figures, MRR metrics, and revenue charts represent sample demonstrative business models and are not representations of past company revenue.
 - **Platform vs. Reseller Separation**: Strict separation is maintained between Tonmoy Infrastructure's platform SaaS subscriptions and the reseller's downstream customer hosting invoices.
+
+## Contributing & Verification
+
+See the [contribution guide](CONTRIBUTING.md) for the development environment, verification commands, database integration setup, and pull-request checklist. The [CI workflow](https://github.com/eshanized/Runstead/actions/workflows/ci.yml) shows the automated checks used by the repository.
+
