@@ -22,6 +22,74 @@ const PlatformContext = createContext<PlatformContextValue | null>(null);
 const isProductionBuild = process.env.NODE_ENV === 'production';
 
 function createEmptyPlatformState(): PlatformState {
+  const defaultStorefront = platformSeedDefaults.storefront;
+  const emptyBusiness: PlatformState['business'] = {
+    businessName: '',
+    legalName: '',
+    email: '',
+    phone: '',
+    address: '',
+    currency: 'USD',
+    timezone: 'UTC',
+    taxRate: 0,
+    taxId: '',
+    notificationPrefs: {
+      newOrders: false,
+      paymentReceived: false,
+      ticketCreated: false,
+      serviceSuspended: false,
+      renewalReminders: false,
+    },
+    teamMembers: [],
+    currentPlan: '',
+  };
+  const emptyStorefront: PlatformState['storefront'] = {
+    ...defaultStorefront,
+    businessName: '',
+    tagline: '',
+    description: '',
+    email: '',
+    phone: '',
+    logoText: '',
+    headline: '',
+    displayedProductIds: [],
+    showProductPricing: false,
+    branding: {
+      ...defaultStorefront.branding,
+      businessName: '',
+      legalName: '',
+      tagline: '',
+      email: '',
+      phone: '',
+      logoText: '',
+      copyrightText: '',
+    },
+    header: {
+      ...defaultStorefront.header,
+      announcementBar: { ...defaultStorefront.header.announcementBar, enabled: false, text: '' },
+      navItems: [],
+      primaryCta: { ...defaultStorefront.header.primaryCta, visible: false },
+      secondaryCta: { ...defaultStorefront.header.secondaryCta, visible: false },
+    },
+    footer: {
+      ...defaultStorefront.footer,
+      showContact: false,
+      showSocials: false,
+      socialLinks: [],
+      columns: [],
+    },
+    seo: {
+      ...defaultStorefront.seo,
+      pageTitle: '',
+      metaDescription: '',
+      noIndex: true,
+    },
+    sections: [],
+    pages: [],
+    publishedAt: null,
+    isDraftDirty: false,
+  };
+
   return {
     ...platformSeedDefaults,
     customers: [],
@@ -32,10 +100,13 @@ function createEmptyPlatformState(): PlatformState {
     dnsZones: [],
     invoices: [],
     tickets: [],
-    integrations: [],
-    notifications: [],
+    storefront: emptyStorefront,
+    publishedStorefront: undefined,
     cart: [],
     activeClientCustomerId: null,
+    integrations: [],
+    business: emptyBusiness,
+    notifications: [],
     platformOperator: {
       ...platformSeedDefaults.platformOperator,
       tenants: [],
