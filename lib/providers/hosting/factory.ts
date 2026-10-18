@@ -1,7 +1,7 @@
 import { CpanelWhmAdapter } from './cpanel-whm.ts';
 import { SandboxHostingAdapter } from './sandbox.ts';
 import type { HostingProviderAdapter } from './types.ts';
-import { prisma } from '../../db/client.ts';
+import { withTenantContext } from '../../db/client.ts';
 import { decryptData } from '../../security/encryption.ts';
 import { env } from '../../config/env.ts';
 
@@ -27,13 +27,13 @@ export async function getHostingProvider(
   if (tenantId) {
     let cred;
     try {
-      cred = await prisma.providerCredential.findFirst({
+      cred = await withTenantContext(tenantId, (tx) => tx.providerCredential.findFirst({
         where: {
           tenantId,
           providerName: 'cpanel_whm',
           status: 'connected',
         },
-      });
+      }));
     } catch {
       throw new ProviderUnavailableError('Unable to read the tenant hosting credentials. No fallback provider was selected.');
     }
