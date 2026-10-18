@@ -29,7 +29,7 @@ export async function listCustomerServices(tenantId: string, customerId: string)
       product: { select: { name: true, type: true } },
     },
     orderBy: { createdAt: 'desc' },
-  }));;
+  }));
 }
 
 export async function listResellerServices(
@@ -57,7 +57,7 @@ export async function listResellerServices(
       },
     }),
     tx.service.count({ where }),
-  ]);
+  ]));
 
   return {
     services,
@@ -83,7 +83,7 @@ export async function getServiceById(tenantId: string, serviceId: string) {
       product: true,
       order: true,
     },
-  }));;
+  }));
 }
 
 export async function createService(tenantId: string, input: CreateServiceInput, actorId?: string): Promise<Service> {
@@ -105,7 +105,7 @@ export async function createService(tenantId: string, input: CreateServiceInput,
       resourceUsage: input.resourceUsage,
       nextRenewalDate: input.nextRenewalDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -133,7 +133,7 @@ export async function updateServiceStatus(
       },
     },
     data: { status: newStatus },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
