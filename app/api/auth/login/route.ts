@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { adminPrisma as prisma } from '@/lib/db/client';
 import { verifyPassword } from '@/lib/security/crypto';
 import { checkRateLimitAsync, getRateLimitClientAddress } from '@/lib/security/rate-limit';
 import { createSession, serializeSessionCookie } from '@/lib/auth/session';
@@ -73,6 +73,13 @@ export async function POST(req: Request) {
   const isPasswordValid = await verifyPassword(password, user.passwordHash);
   if (!isPasswordValid) {
     return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
+  }
+
+  if (!user.emailVerified) {
+    return NextResponse.json(
+      { error: 'Please verify your email address before signing in.', code: 'EMAIL_VERIFICATION_REQUIRED' },
+      { status: 403 }
+    );
   }
 
   // Issue session
