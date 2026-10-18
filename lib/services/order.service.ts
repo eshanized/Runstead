@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { calculateOrderPricing, type OrderItemCalculationRequest } from './product.service.ts';
 import { recordAuditEvent } from './audit.service.ts';
 import type { Order, Invoice, Prisma } from '@prisma/client';
@@ -27,21 +27,21 @@ export async function createOrder(
   const primaryItem = pricing.items[0];
 
   // 1. Verify customer belongs to this tenant in PostgreSQL
-  const customer = await prisma.customer.findUnique({
+  const customer = await withTenantContext(tenantId, (tx) => tx.customer.findUnique({
     where: {
       tenantId_id: {
         tenantId,
         id: customerId,
       },
     },
-  });
+  }));;
 
   if (!customer) {
     throw new Error(`Customer not found in tenant: ${customerId}`);
   }
 
   // 2. Transactional persistence in PostgreSQL
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTenantContext(tenantId, async (tx) => {
     // A. Create Order
     const order = await tx.order.create({
       data: {
@@ -118,7 +118,7 @@ export async function createOrder(
 }
 
 export async function getOrderById(tenantId: string, orderId: string) {
-  return prisma.order.findUnique({
+  return withTenantContext(tenantId, (tx) => tx.order.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -132,7 +132,7 @@ export async function getOrderById(tenantId: string, orderId: string) {
       invoices: true,
       services: true,
     },
-  });
+  }));;
 }
 
 export async function listOrders(
@@ -149,8 +149,8 @@ export async function listOrders(
     status: options.status,
   };
 
-  const [orders, total] = await Promise.all([
-    prisma.order.findMany({
+  const [orders, total] = await withTenantContext(tenantId, async (tx) => Promise.all([
+    tx.order.findMany({
       where,
       skip,
       take: limit,
@@ -160,7 +160,7 @@ export async function listOrders(
         product: { select: { name: true, type: true } },
       },
     }),
-    prisma.order.count({ where }),
+    tx.order.count({ where }),
   ]);
 
   return {
@@ -180,7 +180,7 @@ export async function transitionOrderStatus(
   newStatus: string,
   actorId?: string
 ): Promise<Order> {
-  const updated = await prisma.order.update({
+  const updated = await withTenantContext(tenantId, (tx) => tx.order.update({
     where: {
       tenantId_id: {
         tenantId,
@@ -188,7 +188,7 @@ export async function transitionOrderStatus(
       },
     },
     data: { status: newStatus },
-  });
+  }));;
 
   await recordAuditEvent(tenantId, {
     actorId,
