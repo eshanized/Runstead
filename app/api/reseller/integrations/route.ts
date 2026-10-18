@@ -112,6 +112,18 @@ export async function POST(req: Request) {
 
   const normalizedProvider = providerMeta.normalized;
   const category = providerMeta.category;
+
+  // Only the WHM adapter is currently connected to a real tenant operation path.
+  // A successful credential probe alone must not make a disconnected feature look live.
+  if (normalizedProvider !== 'cpanel_whm') {
+    return NextResponse.json({
+      success: false,
+      status: 'unavailable',
+      providerName: normalizedProvider,
+      error: `Runstead does not yet route ${normalizedProvider} credentials into a supported production workflow. No credentials were stored and the integration was not marked connected.`,
+    }, { status: 501 });
+  }
+
   const targetHost = parsed.data.host || parsed.data.endpoint || '';
 
   // SSRF Protection: Validate target host
