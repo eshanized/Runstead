@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { recordAuditEvent } from './audit.service.ts';
 import type { Ticket, TicketMessage, Prisma } from '@prisma/client';
 
@@ -27,7 +27,7 @@ export async function createTicket(
   const timestamp = Date.now().toString().slice(-6);
   const ticketNumber = `TCK-${timestamp}-${Math.floor(Math.random() * 900 + 100)}`;
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTenantContext(tenantId, async (tx) => {
     const ticket = await tx.ticket.create({
       data: {
         tenantId,
@@ -123,8 +123,8 @@ export async function listTickets(
     status: options.status,
   };
 
-  const [tickets, total] = await Promise.all([
-    prisma.ticket.findMany({
+  const [tickets, total] = await withTenantContext(tenantId, async (tx) => Promise.all([
+    tx.ticket.findMany({
       where,
       skip,
       take: limit,
@@ -134,7 +134,7 @@ export async function listTickets(
         _count: { select: { messages: true } },
       },
     }),
-    prisma.ticket.count({ where }),
+    tx.ticket.count({ where }),
   ]);
 
   return {
@@ -149,7 +149,7 @@ export async function listTickets(
 }
 
 export async function getTicketById(tenantId: string, ticketId: string) {
-  return prisma.ticket.findUnique({
+  return withTenantContext(tenantId, (tx) => tx.ticket.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -160,7 +160,7 @@ export async function getTicketById(tenantId: string, ticketId: string) {
       customer: true,
       messages: { orderBy: { createdAt: 'asc' } },
     },
-  });
+  }));;
 }
 
 export const getTicketWithMessages = getTicketById;
@@ -171,7 +171,7 @@ export async function updateTicketStatus(
   status: string,
   actorId?: string
 ): Promise<Ticket> {
-  const updated = await prisma.ticket.update({
+  const updated = await withTenantContext(tenantId, (tx) => tx.ticket.update({
     where: {
       tenantId_id: {
         tenantId,
@@ -179,7 +179,7 @@ export async function updateTicketStatus(
       },
     },
     data: { status },
-  });
+  }));;
 
   await recordAuditEvent(tenantId, {
     actorId,
