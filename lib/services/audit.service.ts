@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { redactSensitiveData } from '../security/redact.ts';
 
 export interface AuditEventData {
@@ -19,7 +19,7 @@ export async function recordAuditEvent(tenantId: string, event: AuditEventData):
   try {
     const sanitizedPayload = event.payload ? redactSensitiveData(event.payload) : undefined;
 
-    await prisma.auditEvent.create({
+    await withTenantContext(tenantId, (tx) => tx.auditEvent.create({
       data: {
         tenantId,
         actorId: event.actorId,
@@ -30,7 +30,7 @@ export async function recordAuditEvent(tenantId: string, event: AuditEventData):
         payload: sanitizedPayload,
         ipAddress: event.ipAddress,
       },
-    });
+    }));
   } catch (err) {
     // Fail-safe: Audit recording should log error but not crash user request if DB is offline
     console.error('Failed to persist audit event:', err);
