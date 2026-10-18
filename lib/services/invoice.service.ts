@@ -60,7 +60,7 @@ export async function listInvoices(
       },
     }),
     tx.invoice.count({ where }),
-  ]);
+  ]));
 
   return {
     invoices: invoices.map((inv) =>
