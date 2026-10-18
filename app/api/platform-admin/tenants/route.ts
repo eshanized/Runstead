@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requirePlatformAdmin, AuthorizationError, AuthenticationError } from '@/lib/auth/guards';
-import { getLocalDb } from '@/lib/db/local-db';
-import { prisma } from '@/lib/db/client';
+import { adminPrisma as prisma } from '@/lib/db/client';
 import { createResellerTenant } from '@/lib/services/tenant.service';
 
 const createTenantSchema = z.object({
@@ -35,27 +34,7 @@ export async function GET(req: Request) {
     });
     return NextResponse.json({ tenants });
   } catch {
-    const db = getLocalDb();
-    const rows = db.prepare('SELECT * FROM tenants ORDER BY created_at DESC').all() as any[];
-    const tenants = rows.map((r) => {
-      const custCount = db.prepare('SELECT count(*) as count FROM customers WHERE tenant_id = ?').get(r.id) as any;
-      const orderCount = db.prepare('SELECT count(*) as count FROM orders WHERE tenant_id = ?').get(r.id) as any;
-      const servCount = db.prepare('SELECT count(*) as count FROM services WHERE tenant_id = ?').get(r.id) as any;
-      return {
-        id: r.id,
-        name: r.name,
-        slug: r.slug,
-        planTier: r.plan_tier,
-        currency: r.currency,
-        createdAt: r.created_at,
-        _count: {
-          customers: custCount?.count || 0,
-          orders: orderCount?.count || 0,
-          services: servCount?.count || 0,
-        },
-      };
-    });
-    return NextResponse.json({ tenants });
+    return NextResponse.json({ error: 'Platform tenant data is temporarily unavailable.' }, { status: 503 });
   }
 }
 
