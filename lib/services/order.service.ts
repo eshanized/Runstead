@@ -34,7 +34,7 @@ export async function createOrder(
         id: customerId,
       },
     },
-  }));;
+  }));
 
   if (!customer) {
     throw new Error(`Customer not found in tenant: ${customerId}`);
@@ -132,7 +132,7 @@ export async function getOrderById(tenantId: string, orderId: string) {
       invoices: true,
       services: true,
     },
-  }));;
+  }));
 }
 
 export async function listOrders(
@@ -161,7 +161,7 @@ export async function listOrders(
       },
     }),
     tx.order.count({ where }),
-  ]);
+  ]));
 
   return {
     orders,
@@ -188,7 +188,7 @@ export async function transitionOrderStatus(
       },
     },
     data: { status: newStatus },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
