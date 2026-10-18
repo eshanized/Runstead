@@ -71,7 +71,7 @@ export async function replyTicket(
   input: ReplyTicketInput,
   actorId?: string
 ): Promise<TicketMessage> {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTenantContext(tenantId, async (tx) => {
     const message = await tx.ticketMessage.create({
       data: {
         tenantId,
@@ -135,7 +135,7 @@ export async function listTickets(
       },
     }),
     tx.ticket.count({ where }),
-  ]);
+  ]));
 
   return {
     tickets,
@@ -160,7 +160,7 @@ export async function getTicketById(tenantId: string, ticketId: string) {
       customer: true,
       messages: { orderBy: { createdAt: 'asc' } },
     },
-  }));;
+  }));
 }
 
 export const getTicketWithMessages = getTicketById;
@@ -179,7 +179,7 @@ export async function updateTicketStatus(
       },
     },
     data: { status },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
