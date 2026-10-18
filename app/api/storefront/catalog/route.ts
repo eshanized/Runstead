@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/client';
+import { adminPrisma as prisma } from '@/lib/db/client';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
