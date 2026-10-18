@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireCustomer, AuthenticationError } from '@/lib/auth/guards';
+import { requireCustomer, AuthenticationError, AuthorizationError } from '@/lib/auth/guards';
 import { withTenantContext } from '@/lib/db/client';
 
 export async function GET(req: Request) {
@@ -43,11 +43,10 @@ export async function GET(req: Request) {
     });
   } catch (err: unknown) {
     if (err instanceof AuthenticationError) {
-      const status = err.message.includes('required') || err.message.includes('session') ? 401 : 403;
-      return NextResponse.json(
-        { authenticated: false, error: err.message },
-        { status }
-      );
+      return NextResponse.json({ authenticated: false, error: err.message }, { status: 401 });
+    }
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ authenticated: false, error: err.message }, { status: 403 });
     }
     return NextResponse.json(
       { authenticated: false, error: 'Customer dashboard data is temporarily unavailable.' },
