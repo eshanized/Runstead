@@ -15,7 +15,10 @@ const updateSettingsSchema = z.object({
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   try {
     await requireResellerStaff(tenantId, ['owner', 'admin', 'billing', 'support'], req);
@@ -50,7 +53,10 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let user;
   try {
