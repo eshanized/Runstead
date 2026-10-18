@@ -318,7 +318,7 @@ model Payment {
   @@index([tenantId])
   @@index([tenantId, invoiceId])
   @@index([tenantId, customerId])
-  @@index([tenantId, idempotencyKey])
+  @@unique([tenantId, idempotencyKey])
   @@map("payments")
 }
 
