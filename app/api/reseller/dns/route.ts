@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { withTenantContext } from '@/lib/db/client';
 import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
 import { recordAuditEvent } from '@/lib/services/audit.service';
 
@@ -30,26 +30,21 @@ export async function GET(req: Request) {
 
   let domainId: string | undefined;
   if (domain) {
-    const dom = await prisma.domain.findFirst({
+    const dom = await withTenantContext(tenantId, (tx) => tx.domain.findFirst({
       where: { tenantId, domainName: domain.toLowerCase().trim() },
       select: { id: true },
-    });
+    }));
     if (!dom) {
       return NextResponse.json({ records: [] });
     }
     domainId = dom.id;
   }
 
-  const records = await prisma.dnsRecord.findMany({
-    where: {
-      tenantId,
-      domainId,
-    },
-    include: {
-      domain: { select: { domainName: true } },
-    },
+  const records = await withTenantContext(tenantId, (tx) => tx.dnsRecord.findMany({
+    where: { tenantId, domainId },
+    include: { domain: { select: { domainName: true } } },
     orderBy: { host: 'asc' },
-  });
+  }));
 
   return NextResponse.json({
     records: records.map((r) => ({
@@ -98,9 +93,9 @@ export async function POST(req: Request) {
   const normalizedDomain = parsed.data.domain.toLowerCase().trim();
 
   // Find or verify domain exists in this tenant
-  let targetDomain = await prisma.domain.findFirst({
+  let targetDomain = await withTenantContext(tenantId, (tx) => tx.domain.findFirst({
     where: { tenantId, domainName: normalizedDomain },
-  });
+  }));
 
   if (!targetDomain) {
     return NextResponse.json(
@@ -109,7 +104,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const created = await prisma.dnsRecord.create({
+  const created = await withTenantContext(tenantId, (tx) => tx.dnsRecord.create({
     data: {
       tenantId,
       domainId: targetDomain.id,
@@ -119,7 +114,7 @@ export async function POST(req: Request) {
       ttl: parsed.data.ttl,
       priority: parsed.data.priority,
     },
-  });
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,
@@ -171,14 +166,9 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  await prisma.dnsRecord.delete({
-    where: {
-      tenantId_id: {
-        tenantId,
-        id,
-      },
-    },
-  });
+  await withTenantContext(tenantId, (tx) => tx.dnsRecord.delete({
+    where: { tenantId_id: { tenantId, id } },
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,
