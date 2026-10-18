@@ -26,6 +26,7 @@ export interface WebhookVerificationResult {
   orderId?: string;
   amount?: number;
   currency?: string;
+  paymentStatus?: string;
   providerTransactionId?: string;
   error?: string;
 }
