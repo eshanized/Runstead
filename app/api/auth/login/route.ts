@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/client';
 import { verifyPassword } from '@/lib/security/crypto';
-import { checkRateLimit } from '@/lib/security/rate-limit';
+import { checkRateLimitAsync, getRateLimitClientAddress } from '@/lib/security/rate-limit';
 import { createSession, serializeSessionCookie } from '@/lib/auth/session';
 
 const loginSchema = z.object({
@@ -11,8 +11,8 @@ const loginSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-  const rateLimit = checkRateLimit(`login:${ip}`, { windowMs: 60_000, maxRequests: 5 });
+  const ip = getRateLimitClientAddress(req);
+  const rateLimit = await checkRateLimitAsync(`login:${ip}`, { windowMs: 60_000, maxRequests: 5 });
 
   if (!rateLimit.success) {
     return NextResponse.json(
