@@ -15,7 +15,10 @@ const dnsRecordSchema = z.object({
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
   const domain = url.searchParams.get('domain');
 
   try {
@@ -66,7 +69,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let user;
   try {
@@ -97,21 +103,10 @@ export async function POST(req: Request) {
   });
 
   if (!targetDomain) {
-    // Look for customer in tenant to bind domain or require domain creation
-    const firstCustomer = await prisma.customer.findFirst({
-      where: { tenantId, archived: false },
-    });
-    if (!firstCustomer) {
-      return NextResponse.json({ error: 'No customer profile found in tenant to associate domain with.' }, { status: 400 });
-    }
-    targetDomain = await prisma.domain.create({
-      data: {
-        tenantId,
-        customerId: firstCustomer.id,
-        domainName: normalizedDomain,
-        status: 'active',
-      },
-    });
+    return NextResponse.json(
+      { error: 'Domain is not managed by this tenant. Create or import the domain before drafting DNS records.' },
+      { status: 404 }
+    );
   }
 
   const created = await prisma.dnsRecord.create({
@@ -148,7 +143,8 @@ export async function POST(req: Request) {
         ttl: created.ttl,
         priority: created.priority,
       },
-      message: 'DNS record created in authoritative database. External DNS propagation pending nameserver update.',
+      message: 'DNS record draft saved in Runstead only. No authoritative DNS provider was updated and no external propagation occurred.',
+      providerStatus: 'not_configured',
     },
     { status: 201 }
   );
@@ -156,7 +152,10 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
   const id = url.searchParams.get('id');
 
   if (!id) {
@@ -188,5 +187,5 @@ export async function DELETE(req: Request) {
     resourceId: id,
   });
 
-  return NextResponse.json({ success: true, message: 'DNS record deleted from database.' });
+  return NextResponse.json({ success: true, message: 'DNS record draft deleted from Runstead. No external DNS provider was changed.', providerStatus: 'not_configured' });
 }
