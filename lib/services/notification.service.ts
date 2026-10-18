@@ -3,7 +3,7 @@ import { env } from '../config/env.ts';
 export interface NotificationPayload {
   to: string;
   subject: string;
-  template: 'order_confirmed' | 'payment_succeeded' | 'service_provisioned' | 'ticket_reply' | 'password_reset';
+  template: 'order_confirmed' | 'payment_succeeded' | 'service_provisioned' | 'ticket_reply' | 'password_reset' | 'email_verification';
   data: Record<string, any>;
   tenantName?: string;
 }
@@ -37,7 +37,9 @@ export async function sendTransactionalNotification(
           from,
           to: payload.to,
           subject: payload.subject,
-          text: `Notification: ${payload.subject}\n\nDetails: ${JSON.stringify(payload.data, null, 2)}`,
+          text: payload.template === 'email_verification' && typeof payload.data.verificationUrl === 'string'
+            ? `Verify your Runstead email address by opening this single-use link:\n\n${payload.data.verificationUrl}\n\nThis link expires in 30 minutes. If you did not create a Runstead account, you can ignore this message.`
+            : `Notification: ${payload.subject}\n\nDetails: ${JSON.stringify(payload.data, null, 2)}`,
         }),
       });
 

@@ -64,9 +64,10 @@ model User {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relationships
-  memberships      TenantMembership[]
-  sessions         Session[]
-  customerProfiles Customer[]
+  memberships            TenantMembership[]
+  sessions               Session[]
+  customerProfiles       Customer[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@map("users")
 }
@@ -86,6 +87,22 @@ model Session {
   @@index([userId])
   @@index([token])
   @@map("sessions")
+}
+
+
+/// Single-use, hashed email verification challenges.
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("email_verification_tokens")
 }
 
 /// Tenant Membership (Links Global Users to specific Reseller Tenants with Roles)
@@ -318,7 +335,7 @@ model Payment {
   @@index([tenantId])
   @@index([tenantId, invoiceId])
   @@index([tenantId, customerId])
-  @@index([tenantId, idempotencyKey])
+  @@unique([tenantId, idempotencyKey])
   @@map("payments")
 }
 
@@ -525,4 +542,15 @@ model AuditEvent {
   @@index([tenantId, resourceType])
   @@index([tenantId, createdAt])
   @@map("audit_events")
+}
+
+/// Shared production rate-limit buckets used atomically across application instances.
+model RateLimitBucket {
+  key          String   @id @db.VarChar(255)
+  count        Int      @default(0)
+  windowEndsAt DateTime @map("window_ends_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([windowEndsAt])
+  @@map("rate_limit_buckets")
 }

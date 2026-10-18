@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/client';
 import { hashPassword } from '@/lib/security/crypto';
-import { checkRateLimit } from '@/lib/security/rate-limit';
-import { createSession, serializeSessionCookie } from '@/lib/auth/session';
+import { checkRateLimitAsync, getRateLimitClientAddress } from '@/lib/security/rate-limit';
+import { generateSecureToken, hashToken } from '@/lib/security/crypto';
+import { sendTransactionalNotification } from '@/lib/services/notification.service';
+import { env } from '@/lib/config/env';
 import { createResellerTenant } from '@/lib/services/tenant.service';
 
 const registerSchema = z.object({
@@ -15,8 +17,8 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-  const rateLimit = checkRateLimit(`register:${ip}`, { windowMs: 60_000, maxRequests: 5 });
+  const ip = getRateLimitClientAddress(req);
+  const rateLimit = await checkRateLimitAsync(`register:${ip}`, { windowMs: 60_000, maxRequests: 5 });
 
   if (!rateLimit.success) {
     return NextResponse.json(
@@ -77,30 +79,45 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Registration failed: ${msg}` }, { status: 500 });
   }
 
-  // Issue session
-  const { rawToken } = await createSession(user.id, {
-    ipAddress: ip,
-    userAgent: req.headers.get('user-agent') || undefined,
-    userObj: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      isPlatformAdmin: Boolean(user.isPlatformAdmin),
-      emailVerified: null,
-    },
+  // Registration does not create an authenticated session until the address is verified.
+  const rawToken = generateSecureToken(32);
+  try {
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(rawToken),
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      },
+    });
+  } catch {
+    return NextResponse.json(
+      { error: 'Account was created, but a verification challenge could not be saved. Request another verification email.' },
+      { status: 503 }
+    );
+  }
+
+  const verificationUrl = new URL('/api/auth/verify-email', env.NEXT_PUBLIC_APP_URL);
+  verificationUrl.searchParams.set('token', rawToken);
+  const delivery = await sendTransactionalNotification({
+    to: user.email,
+    subject: 'Verify your Runstead email address',
+    template: 'email_verification',
+    data: { verificationUrl: verificationUrl.toString() },
   });
 
-  const response = NextResponse.json({
+  return NextResponse.json({
     success: true,
+    verificationRequired: true,
+    verificationEmailSent: delivery.accepted,
+    message: delivery.accepted
+      ? 'Account created. Check your email to verify the address before signing in.'
+      : 'Account created, but the verification email could not be sent. Configure email delivery and use the resend-verification endpoint.',
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
-      isPlatformAdmin: user.isPlatformAdmin,
+      emailVerified: null,
     },
     tenant: tenant ? { id: tenant.id, name: tenant.name, slug: tenant.slug } : null,
-  });
-
-  response.headers.set('Set-Cookie', serializeSessionCookie(rawToken));
-  return response;
+  }, { status: 201 });
 }

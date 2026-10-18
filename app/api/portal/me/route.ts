@@ -1,36 +1,24 @@
 import { NextResponse } from 'next/server';
-import { requireCustomer, AuthenticationError } from '@/lib/auth/guards';
-import { prisma } from '@/lib/db/client';
-import { getLocalDb, resolveLocalTenantId } from '@/lib/db/local-db';
+import { requireCustomer, AuthenticationError, AuthorizationError } from '@/lib/auth/guards';
+import { withTenantContext } from '@/lib/db/client';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ authenticated: false, error: 'tenantId is required' }, { status: 400 });
+  }
 
   try {
     const { user, customer } = await requireCustomer(tenantId, undefined, req);
-
-    // Fetch counts and metrics for the customer
-    let servicesCount = 0;
-    let invoicesCount = 0;
-    let domainsCount = 0;
-    let openTicketsCount = 0;
-
-    try {
-      [servicesCount, invoicesCount, domainsCount, openTicketsCount] = await Promise.all([
-        prisma.service.count({ where: { tenantId: customer.tenantId, customerId: customer.id, status: 'active' } }),
-        prisma.invoice.count({ where: { tenantId: customer.tenantId, customerId: customer.id } }),
-        prisma.domain.count({ where: { tenantId: customer.tenantId, customerId: customer.id } }),
-        prisma.ticket.count({ where: { tenantId: customer.tenantId, customerId: customer.id, status: { in: ['open', 'in_progress'] } } }),
-      ]);
-    } catch {
-      const db = getLocalDb();
-      const resolved = resolveLocalTenantId(customer.tenantId);
-      servicesCount = (db.prepare('SELECT COUNT(*) as count FROM services WHERE tenant_id = ? AND customer_id = ? AND status = "active"').get(resolved, customer.id) as any)?.count || 0;
-      invoicesCount = (db.prepare('SELECT COUNT(*) as count FROM invoices WHERE tenant_id = ? AND customer_id = ?').get(resolved, customer.id) as any)?.count || 0;
-      domainsCount = (db.prepare('SELECT COUNT(*) as count FROM domains WHERE tenant_id = ? AND customer_id = ?').get(resolved, customer.id) as any)?.count || 0;
-      openTicketsCount = (db.prepare('SELECT COUNT(*) as count FROM tickets WHERE tenant_id = ? AND customer_id = ? AND status IN ("open", "in_progress")').get(resolved, customer.id) as any)?.count || 0;
-    }
+    const [servicesCount, invoicesCount, domainsCount, openTicketsCount] = await withTenantContext(customer.tenantId, async (tx) =>
+      Promise.all([
+        tx.service.count({ where: { tenantId: customer.tenantId, customerId: customer.id, status: 'active' } }),
+        tx.invoice.count({ where: { tenantId: customer.tenantId, customerId: customer.id } }),
+        tx.domain.count({ where: { tenantId: customer.tenantId, customerId: customer.id } }),
+        tx.ticket.count({ where: { tenantId: customer.tenantId, customerId: customer.id, status: { in: ['open', 'in_progress'] } } }),
+      ])
+    );
 
     return NextResponse.json({
       authenticated: true,
@@ -54,10 +42,15 @@ export async function GET(req: Request) {
       },
     });
   } catch (err: unknown) {
-    const status = err instanceof AuthenticationError ? 401 : 403;
+    if (err instanceof AuthenticationError) {
+      return NextResponse.json({ authenticated: false, error: err.message }, { status: 401 });
+    }
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ authenticated: false, error: err.message }, { status: 403 });
+    }
     return NextResponse.json(
-      { authenticated: false, error: err instanceof Error ? err.message : 'Unauthorized' },
-      { status }
+      { authenticated: false, error: 'Customer dashboard data is temporarily unavailable.' },
+      { status: 503 }
     );
   }
 }

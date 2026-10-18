@@ -28,13 +28,14 @@ const baseEnvSchema = z.object({
   CPANEL_WHM_HOST: z.string().optional(),
   CPANEL_WHM_USER: z.string().optional(),
   CPANEL_WHM_API_TOKEN: z.string().optional(),
+  CPANEL_WHM_ALLOW_SHARED_PROVIDER: z.enum(['true', 'false']).default('false'),
 
   // Email / Transactional Notifications
   EMAIL_FROM: z.string().email().default('notifications@runstead.org'),
   RESEND_API_KEY: z.string().optional(),
 
   // Demo & Simulation controls
-  NEXT_PUBLIC_ENABLE_DEMO: z.string().default('true'),
+  NEXT_PUBLIC_ENABLE_DEMO: z.string().default(process.env.NODE_ENV === 'production' ? 'false' : 'true'),
   ALLOW_DEMO_MUTATIONS_ON_DB: z.string().default('false'),
   ALLOW_TEST_AUTH_OVERRIDE: z.string().optional(),
 });

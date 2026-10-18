@@ -4,7 +4,10 @@ import { listTickets, createTicket } from '@/lib/services/ticket.service';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let customer;
   try {
@@ -31,7 +34,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let customer;
   let user;

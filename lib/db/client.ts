@@ -1,14 +1,39 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 
-// Global singleton caching pattern for Next.js to prevent connection pool exhaustion during hot reload
+// Keep both clients separate: administrative access is explicit, while production
+// application queries use the restricted role and must run with a tenant context.
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   appPrisma: PrismaClient | undefined;
 };
 
+function ensureDistinctProductionRoles(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+  const adminUrl = process.env.DATABASE_URL;
+  const appUrl = process.env.APP_DATABASE_URL;
+  if (!adminUrl || !appUrl) return; // required-variable validation reports missing values
+  try {
+    const admin = new URL(adminUrl);
+    const app = new URL(appUrl);
+    if (
+      admin.username === app.username &&
+      admin.hostname === app.hostname &&
+      admin.port === app.port &&
+      admin.pathname === app.pathname
+    ) {
+      throw new Error(
+        'Production database-role violation: DATABASE_URL and APP_DATABASE_URL must use distinct database roles. The application role must not have BYPASSRLS.'
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('database-role violation')) throw error;
+    throw new Error('Production database configuration contains an invalid connection URL.');
+  }
+}
+
 /**
- * Validates and retrieves the required database connection string.
- * Enforces restricted application role in production without silent privileged fallback.
+ * Validates and retrieves a connection string for the requested role.
+ * Production never falls back from the restricted application role to DATABASE_URL.
  */
 export function getDatabaseUrl(role: 'admin' | 'app' = 'admin', isTest: boolean = false): string {
   if (isTest) {
@@ -20,6 +45,7 @@ export function getDatabaseUrl(role: 'admin' | 'app' = 'admin', isTest: boolean 
 
   if (role === 'app') {
     if (process.env.APP_DATABASE_URL) {
+      ensureDistinctProductionRoles();
       return process.env.APP_DATABASE_URL;
     }
     if (isProd) {
@@ -27,10 +53,7 @@ export function getDatabaseUrl(role: 'admin' | 'app' = 'admin', isTest: boolean 
         'Production security boundary violation: APP_DATABASE_URL must be configured for the unprivileged application role (runstead_app) with NOBYPASSRLS.'
       );
     }
-    // Only in non-production local development without APP_DATABASE_URL
-    if (process.env.DATABASE_URL) {
-      return process.env.DATABASE_URL;
-    }
+    if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   }
 
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
@@ -40,9 +63,7 @@ export function getDatabaseUrl(role: 'admin' | 'app' = 'admin', isTest: boolean 
   );
 }
 
-/**
- * Creates a configured PrismaClient instance.
- */
+/** Creates a configured PrismaClient instance. */
 export function createPrismaClient(connectionUrl?: string): PrismaClient {
   const url = connectionUrl || process.env.DATABASE_URL;
   return new PrismaClient({
@@ -52,18 +73,21 @@ export function createPrismaClient(connectionUrl?: string): PrismaClient {
 }
 
 /**
- * Primary Administrative Prisma Client (Used for administrative tasks, migrations, and trusted setup).
+ * Administrative client for trusted setup, migrations, cross-tenant workers, and
+ * specifically reviewed platform-administration operations. Do not use for normal
+ * reseller or customer data access.
  */
-export const prisma =
+export const adminPrisma =
   globalForPrisma.prisma ??
   createPrismaClient(getDatabaseUrl('admin', process.env.NODE_ENV === 'test'));
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prisma = adminPrisma;
 }
 
 /**
- * Unprivileged Application Prisma Client (Uses runstead_app unprivileged role with NOBYPASSRLS).
+ * Restricted application client. Production uses APP_DATABASE_URL; in development
+ * and isolated tests it may use the local DATABASE_URL for convenience.
  */
 export const appPrisma =
   globalForPrisma.appPrisma ??
@@ -74,15 +98,19 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 /**
- * Helper to execute a database operation under an authenticated/trusted tenant context.
- * 
- * Enforces transactional isolation using PostgreSQL's `set_config('app.current_tenant_id', $1, true)`.
- * The 3rd argument `is_local = true` ensures the configuration parameter is strictly scoped
- * to the local transaction, guaranteeing automatic disposal on commit or rollback with zero pool leakage.
- * 
- * @param tenantId The validated UUID of the tenant.
- * @param operation Callback receiving the transaction client.
- * @param client Optional PrismaClient instance (defaults to unprivileged appPrisma).
+ * Backwards-compatible default:
+ * - production: restricted application role (RLS enforced)
+ * - development/test: administrative client for seed fixtures and local workflows
+ *
+ * Tenant-owned production operations still need withTenantContext. RLS blocks
+ * them when context is absent; this alias never exposes the privileged client in
+ * production.
+ */
+export const prisma = process.env.NODE_ENV === 'production' ? appPrisma : adminPrisma;
+
+/**
+ * Execute a database operation under transaction-local tenant context.
+ * This is the normal entry point for production tenant-owned data.
  */
 export async function withTenantContext<T>(
   tenantId: string,
@@ -94,15 +122,12 @@ export async function withTenantContext<T>(
   }
 
   return client.$transaction(async (tx) => {
-    // Transaction-scoped context configuration (is_local = true)
     await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
     return operation(tx);
   });
 }
 
-/**
- * Database health check helper.
- */
+/** Database health check helper. */
 export async function checkDatabaseConnection(client: PrismaClient = prisma): Promise<boolean> {
   try {
     await client.$queryRaw`SELECT 1`;

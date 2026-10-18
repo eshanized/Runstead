@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth/guards';
-import { prisma } from '@/lib/db/client';
+import { adminPrisma as prisma } from '@/lib/db/client';
 
 export async function GET(req: Request) {
   const user = await getAuthenticatedUser(req);
@@ -41,6 +41,7 @@ export async function GET(req: Request) {
       name: fullUser.name,
       email: fullUser.email,
       isPlatformAdmin: fullUser.isPlatformAdmin,
+      emailVerified: fullUser.emailVerified,
     },
     tenants: (fullUser.memberships || []).map((m: any) => ({
       tenantId: m.tenantId,

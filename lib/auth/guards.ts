@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { extractTokenFromRequest, validateSessionToken } from './session.ts';
 import type { AuthenticatedUser, ResellerStaffRole } from './types.ts';
 import type { TenantMembership, Customer } from '@prisma/client';
@@ -56,6 +56,9 @@ export async function requireAuthenticatedUser(req: Request): Promise<Authentica
   if (!user) {
     throw new AuthenticationError('Active session required. Please sign in.');
   }
+  if (!user.emailVerified) {
+    throw new AuthenticationError('Email verification is required before accessing protected account operations.');
+  }
   return user;
 }
 
@@ -101,14 +104,14 @@ export async function requireResellerStaff(
   }
 
   // Check tenant membership in PostgreSQL database
-  const membership = await prisma.tenantMembership.findUnique({
+  const membership = await withTenantContext(tenantId, (tx) => tx.tenantMembership.findUnique({
     where: {
       tenantId_userId: {
         tenantId,
         userId: user.id,
       },
     },
-  });
+  }));
 
   if (!membership) {
     throw new AuthorizationError('You do not have access to this reseller tenant.');
@@ -140,13 +143,13 @@ export async function requireCustomer(
   const user = await requireAuthenticatedUser(req);
 
   // Look up customer record in tenant linked to this user ID
-  const customer = await prisma.customer.findFirst({
+  const customer = await withTenantContext(tenantId, (tx) => tx.customer.findFirst({
     where: {
       tenantId,
       userId: user.id,
       archived: false,
     },
-  });
+  }));
 
   if (!customer) {
     throw new AuthorizationError('No customer profile associated with this account in this tenant.');

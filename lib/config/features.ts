@@ -7,13 +7,13 @@ export interface Feature {
 
 export const platformFeatures: Feature[] = [
   { icon: 'Users', title: 'Client Management', description: 'Centralized customer records with service history, billing context, and communication logs.', status: 'live' },
-  { icon: 'CreditCard', title: 'Billing & Invoicing', description: 'Recurring billing, invoice generation, payment tracking, refunds, and credit balances.', status: 'live' },
-  { icon: 'Zap', title: 'Provisioning Automation', description: 'Automated service lifecycle from order to activation, with retry handling and failure visibility.', status: 'live' },
-  { icon: 'Globe', title: 'Domain Management', description: 'Domain search, registration workflows, DNS management, and renewal tracking.', status: 'live' },
-  { icon: 'Server', title: 'Hosting Control', description: 'Shared hosting, VPS management, control panel integration, and resource monitoring.', status: 'live' },
+  { icon: 'CreditCard', title: 'Billing & Invoicing', description: 'Invoice records and checkout-session creation are available; recurring billing, refunds, and live settlement require verified provider configuration.', status: 'available' },
+  { icon: 'Zap', title: 'Provisioning Automation', description: 'Durable job processing is implemented; account activation depends on a configured provider and successful provider-confirmed operations.', status: 'available' },
+  { icon: 'Globe', title: 'Domain Management', description: 'Domain inventory and pending-registration requests are available; live registrar registration, renewal, and DNS mutation are not yet integrated.', status: 'available' },
+  { icon: 'Server', title: 'Hosting Control', description: 'cPanel/WHM account and database operations are available when configured; file manager, SSL, DNS, mailbox, backup restore, and VPS controls remain unavailable in this adapter.', status: 'available' },
   { icon: 'Store', title: 'White-label Storefront', description: 'Branded customer portals and storefronts with customizable products, pricing, and appearance.', status: 'live' },
   { icon: 'LifeBuoy', title: 'Support System', description: 'Ticket management, priority routing, internal notes, and customer conversation history.', status: 'live' },
-  { icon: 'BarChart3', title: 'Analytics & Reporting', description: 'Revenue tracking, customer growth, service distribution, and lifecycle outcome reporting.', status: 'live' },
+  { icon: 'BarChart3', title: 'Analytics & Reporting', description: 'Business summaries are available from stored application records; infrastructure telemetry and provider-confirmed metrics are not included unless integrated.', status: 'available' },
 ];
 
 export const infrastructureFeatures: Feature[] = [
@@ -55,8 +55,8 @@ export const roadmapStages: RoadmapStage[] = [
       { name: 'Order automation', status: 'live' },
       { name: 'Service lifecycle', status: 'live' },
       { name: 'Support ticketing', status: 'live' },
-      { name: 'Domain management', status: 'live' },
-      { name: 'DNS zone editor', status: 'live' },
+      { name: 'Domain request tracking', status: 'available' },
+      { name: 'DNS record drafts (local only)', status: 'available' },
     ],
   },
   {

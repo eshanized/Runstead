@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { withTenantContext } from '@/lib/db/client';
 import { requireCustomer, AuthenticationError } from '@/lib/auth/guards';
 import { getHostingProvider } from '@/lib/providers/hosting/factory';
 import { recordAuditEvent } from '@/lib/services/audit.service';
@@ -42,14 +42,9 @@ export async function POST(
   // 2. Fetch service & verify ownership
   let service: any = null;
   try {
-    service = await prisma.service.findUnique({
-      where: {
-        tenantId_id: {
-          tenantId,
-          id: serviceId,
-        },
-      },
-    });
+    service = await withTenantContext(tenantId, (tx) => tx.service.findUnique({
+      where: { tenantId_id: { tenantId, id: serviceId } },
+    }));
   } catch (err) {
     if (process.env.NODE_ENV === 'production') {
       return NextResponse.json({ error: 'Service lookup temporarily unavailable' }, { status: 503 });
@@ -135,7 +130,7 @@ export async function POST(
 
       case 'list_databases': {
         if (!capabilities.databaseManager) {
-          return NextResponse.json({ databases: [] });
+          return NextResponse.json({ error: 'Database management is not available for this service.' }, { status: 501 });
         }
         const databases = await provider.listDatabases(username);
         return NextResponse.json({ success: true, databases });
@@ -161,7 +156,7 @@ export async function POST(
 
       case 'list_backups': {
         if (!capabilities.backups) {
-          return NextResponse.json({ backups: [] });
+          return NextResponse.json({ error: 'Backup management is not available for this service.' }, { status: 501 });
         }
         const backups = await provider.listBackups(username);
         return NextResponse.json({ success: true, backups });

@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { recordAuditEvent } from './audit.service.ts';
 import type { Service, Prisma } from '@prisma/client';
 
@@ -20,7 +20,7 @@ export interface CreateServiceInput {
 }
 
 export async function listCustomerServices(tenantId: string, customerId: string) {
-  return prisma.service.findMany({
+  return withTenantContext(tenantId, (tx) => tx.service.findMany({
     where: {
       tenantId,
       customerId,
@@ -29,7 +29,7 @@ export async function listCustomerServices(tenantId: string, customerId: string)
       product: { select: { name: true, type: true } },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 }
 
 export async function listResellerServices(
@@ -45,8 +45,8 @@ export async function listResellerServices(
     status: options.status,
   };
 
-  const [services, total] = await Promise.all([
-    prisma.service.findMany({
+  const [services, total] = await withTenantContext(tenantId, async (tx) => Promise.all([
+    tx.service.findMany({
       where,
       skip,
       take: limit,
@@ -56,8 +56,8 @@ export async function listResellerServices(
         product: { select: { name: true, type: true } },
       },
     }),
-    prisma.service.count({ where }),
-  ]);
+    tx.service.count({ where }),
+  ]));
 
   return {
     services,
@@ -71,7 +71,7 @@ export async function listResellerServices(
 }
 
 export async function getServiceById(tenantId: string, serviceId: string) {
-  return prisma.service.findUnique({
+  return withTenantContext(tenantId, (tx) => tx.service.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -83,11 +83,11 @@ export async function getServiceById(tenantId: string, serviceId: string) {
       product: true,
       order: true,
     },
-  });
+  }));
 }
 
 export async function createService(tenantId: string, input: CreateServiceInput, actorId?: string): Promise<Service> {
-  const service = await prisma.service.create({
+  const service = await withTenantContext(tenantId, (tx) => tx.service.create({
     data: {
       tenantId,
       customerId: input.customerId,
@@ -105,7 +105,7 @@ export async function createService(tenantId: string, input: CreateServiceInput,
       resourceUsage: input.resourceUsage,
       nextRenewalDate: input.nextRenewalDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
-  });
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -125,7 +125,7 @@ export async function updateServiceStatus(
   reason?: string,
   actorId?: string
 ): Promise<Service> {
-  const service = await prisma.service.update({
+  const service = await withTenantContext(tenantId, (tx) => tx.service.update({
     where: {
       tenantId_id: {
         tenantId,
@@ -133,7 +133,7 @@ export async function updateServiceStatus(
       },
     },
     data: { status: newStatus },
-  });
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,

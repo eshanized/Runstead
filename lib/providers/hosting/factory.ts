@@ -1,7 +1,7 @@
 import { CpanelWhmAdapter } from './cpanel-whm.ts';
 import { SandboxHostingAdapter } from './sandbox.ts';
 import type { HostingProviderAdapter } from './types.ts';
-import { prisma } from '../../db/client.ts';
+import { withTenantContext } from '../../db/client.ts';
 import { decryptData } from '../../security/encryption.ts';
 import { env } from '../../config/env.ts';
 
@@ -13,46 +13,59 @@ export class ProviderUnavailableError extends Error {
 }
 
 /**
- * Hosting provider factory.
- * Resolves configured tenant credentials or system environment variables.
- * Fails closed in production if no valid provider configuration exists.
- * Sandbox adapter is strictly restricted to explicit demo or non-production test mode.
+ * Resolves a verified tenant provider. Tenant credential read/decryption failures
+ * fail closed; they must never fall back to a different tenant's or global credential.
  */
 export async function getHostingProvider(
   tenantId?: string,
   options: { allowSandbox?: boolean } = {}
 ): Promise<HostingProviderAdapter> {
-  // 1. If explicit demo/test sandbox requested and permitted
-  if (options.allowSandbox && (process.env.NODE_ENV === 'test' || env.NEXT_PUBLIC_ENABLE_DEMO === 'true')) {
+  if (process.env.NODE_ENV !== 'production' && options.allowSandbox && (process.env.NODE_ENV === 'test' || env.NEXT_PUBLIC_ENABLE_DEMO === 'true')) {
     return new SandboxHostingAdapter();
   }
 
-  // 2. Check if tenant has encrypted WHM credentials stored in PostgreSQL database
   if (tenantId) {
+    let cred;
     try {
-      const cred = await prisma.providerCredential.findFirst({
+      cred = await withTenantContext(tenantId, (tx) => tx.providerCredential.findFirst({
         where: {
           tenantId,
           providerName: 'cpanel_whm',
           status: 'connected',
         },
-      });
-
-      if (cred && cred.encryptedConfig) {
-        const decrypted = decryptData<{ host: string; user: string; apiToken: string; port?: number }>(
-          cred.encryptedConfig as any
-        );
-        if (decrypted.host && decrypted.user && decrypted.apiToken) {
-          return new CpanelWhmAdapter(decrypted);
-        }
-      }
+      }));
     } catch {
-      // Failed lookup or decryption
+      if (process.env.NODE_ENV === 'test') return new SandboxHostingAdapter();
+      throw new ProviderUnavailableError('Unable to read the tenant hosting credentials. No fallback provider was selected.');
+    }
+
+    if (cred) {
+      if (!cred.encryptedConfig) {
+        throw new ProviderUnavailableError('The tenant hosting credentials are incomplete. Reconnect the provider.');
+      }
+      let decrypted: { host: string; user: string; apiToken: string; port?: number };
+      try {
+        decrypted = decryptData<typeof decrypted>(cred.encryptedConfig as any);
+      } catch {
+        throw new ProviderUnavailableError('The tenant hosting credentials could not be decrypted. Reconnect the provider.');
+      }
+      if (!decrypted.host || !decrypted.user || !decrypted.apiToken) {
+        throw new ProviderUnavailableError('The tenant hosting credentials are incomplete. Reconnect the provider.');
+      }
+      return new CpanelWhmAdapter(decrypted);
     }
   }
 
-  // 3. Check system-wide environment variables
-  if (env.CPANEL_WHM_HOST && env.CPANEL_WHM_USER && env.CPANEL_WHM_API_TOKEN) {
+  // Shared host-level credentials are allowed only when explicitly enabled.
+  const mayUseSharedCredential =
+    !tenantId || env.CPANEL_WHM_ALLOW_SHARED_PROVIDER === 'true';
+
+  if (
+    mayUseSharedCredential &&
+    env.CPANEL_WHM_HOST &&
+    env.CPANEL_WHM_USER &&
+    env.CPANEL_WHM_API_TOKEN
+  ) {
     return new CpanelWhmAdapter({
       host: env.CPANEL_WHM_HOST,
       user: env.CPANEL_WHM_USER,
@@ -60,13 +73,13 @@ export async function getHostingProvider(
     });
   }
 
-  // 4. Test mode fallback
   if (process.env.NODE_ENV === 'test') {
     return new SandboxHostingAdapter();
   }
 
-  // 5. Fail closed in production/live mode
   throw new ProviderUnavailableError(
-    `No hosting provider adapter configured for tenant "${tenantId || 'system'}". Please configure WHM credentials.`
+    tenantId
+      ? 'No hosting provider is configured for this tenant. Configure tenant credentials or explicitly authorize shared host-level credentials.'
+      : 'No system hosting provider is configured.'
   );
 }

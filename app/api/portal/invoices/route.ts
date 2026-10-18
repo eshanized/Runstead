@@ -4,7 +4,10 @@ import { listInvoices } from '@/lib/services/invoice.service';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let customer;
   try {

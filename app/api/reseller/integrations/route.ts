@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
-import { prisma } from '@/lib/db/client';
+import { withTenantContext } from '@/lib/db/client';
 import { encryptData, decryptData } from '@/lib/security/encryption';
 import { recordAuditEvent } from '@/lib/services/audit.service';
 import { validateSafeEndpoint } from '@/lib/security/ssrf';
@@ -30,7 +30,10 @@ const saveIntegrationSchema = z.object({
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   try {
     await requireResellerStaff(tenantId, ['owner', 'admin'], req);
@@ -39,10 +42,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const credentials = await prisma.providerCredential.findMany({
+  const credentials = await withTenantContext(tenantId, (tx) => tx.providerCredential.findMany({
     where: { tenantId },
     orderBy: { updatedAt: 'desc' },
-  });
+  }));
 
   const integrations = credentials.map((r) => {
     let host = 'Configured';
@@ -72,7 +75,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let user;
   try {
@@ -106,6 +112,18 @@ export async function POST(req: Request) {
 
   const normalizedProvider = providerMeta.normalized;
   const category = providerMeta.category;
+
+  // Only the WHM adapter is currently connected to a real tenant operation path.
+  // A successful credential probe alone must not make a disconnected feature look live.
+  if (normalizedProvider !== 'cpanel_whm') {
+    return NextResponse.json({
+      success: false,
+      status: 'unavailable',
+      providerName: normalizedProvider,
+      error: `Runstead does not yet route ${normalizedProvider} credentials into a supported production workflow. No credentials were stored and the integration was not marked connected.`,
+    }, { status: 501 });
+  }
+
   const targetHost = parsed.data.host || parsed.data.endpoint || '';
 
   // SSRF Protection: Validate target host
@@ -117,7 +135,8 @@ export async function POST(req: Request) {
     }
   }
 
-  // Run real connection check if requested and provider supports it
+  // A provider is marked connected only after a real provider-specific probe.
+  // Saving a token or recognizing its format is not evidence of connectivity.
   let connectionStatus: 'connected' | 'error' | 'disconnected' = 'disconnected';
   let testError: string | undefined;
 
@@ -131,19 +150,47 @@ export async function POST(req: Request) {
           port: parsed.data.port || 2087,
         });
         const testRes = await adapter.testConnection();
-        if (testRes.connected) {
-          connectionStatus = 'connected';
-        } else {
-          connectionStatus = 'error';
-          testError = testRes.error || 'Connection failed to respond properly.';
-        }
-      } catch (err: unknown) {
+        connectionStatus = testRes.connected ? 'connected' : 'error';
+        testError = testRes.connected ? undefined : (testRes.error || 'WHM connection verification failed.');
+      } catch {
         connectionStatus = 'error';
-        testError = err instanceof Error ? err.message : 'Connection test threw an error';
+        testError = 'WHM connection verification failed. Check the hostname, port, username, token, and network access.';
       }
     } else {
-      // Other providers: mark connected upon verification of token format
-      connectionStatus = 'connected';
+      let probeUrl: string | undefined;
+      let authorization = parsed.data.apiToken;
+      if (normalizedProvider === 'stripe') {
+        probeUrl = 'https://api.stripe.com/v1/account';
+        authorization = `Bearer ${authorization}`;
+      } else if (normalizedProvider === 'resend') {
+        probeUrl = 'https://api.resend.com/domains';
+        authorization = `Bearer ${authorization}`;
+      } else if (normalizedProvider === 'sendgrid') {
+        probeUrl = 'https://api.sendgrid.com/v3/user/profile';
+        authorization = `Bearer ${authorization}`;
+      }
+
+      if (!probeUrl) {
+        connectionStatus = 'error';
+        testError = `Connection verification is not implemented for ${normalizedProvider}; credentials were not marked connected.`;
+      } else {
+        try {
+          const response = await fetch(probeUrl, {
+            method: 'GET',
+            headers: { Authorization: authorization, Accept: 'application/json' },
+            signal: AbortSignal.timeout(10_000),
+            cache: 'no-store',
+          });
+          connectionStatus = response.ok ? 'connected' : 'error';
+          if (!response.ok) {
+            // Do not return provider response bodies, which may include sensitive diagnostics.
+            testError = `${normalizedProvider} rejected connection verification (HTTP ${response.status}).`;
+          }
+        } catch {
+          connectionStatus = 'error';
+          testError = `${normalizedProvider} connection verification failed due to a network or timeout error.`;
+        }
+      }
     }
   }
 
@@ -156,13 +203,8 @@ export async function POST(req: Request) {
 
   const now = new Date();
 
-  const cred = await prisma.providerCredential.upsert({
-    where: {
-      tenantId_providerName: {
-        tenantId,
-        providerName: normalizedProvider,
-      },
-    },
+  const cred = await withTenantContext(tenantId, (tx) => tx.providerCredential.upsert({
+    where: { tenantId_providerName: { tenantId, providerName: normalizedProvider } },
     update: {
       category,
       status: connectionStatus,
@@ -177,7 +219,7 @@ export async function POST(req: Request) {
       encryptedConfig: encryptedConfig as any,
       lastTestedAt: parsed.data.testConnection ? now : undefined,
     },
-  });
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,
@@ -206,7 +248,10 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
   const providerName = url.searchParams.get('providerName');
 
   if (!providerName) {
@@ -225,12 +270,9 @@ export async function DELETE(req: Request) {
   const rawProvider = providerName.toLowerCase().trim();
   const normalized = PROVIDER_ALIASES[rawProvider]?.normalized || rawProvider;
 
-  await prisma.providerCredential.deleteMany({
-    where: {
-      tenantId,
-      providerName: normalized,
-    },
-  });
+  await withTenantContext(tenantId, (tx) => tx.providerCredential.deleteMany({
+    where: { tenantId, providerName: normalized },
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,

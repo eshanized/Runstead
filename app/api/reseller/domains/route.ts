@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { withTenantContext } from '@/lib/db/client';
 import { requireResellerStaff, AuthenticationError, AuthorizationError } from '@/lib/auth/guards';
 import { recordAuditEvent } from '@/lib/services/audit.service';
 
@@ -13,7 +13,10 @@ const domainCreateSchema = z.object({
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   try {
     await requireResellerStaff(tenantId, ['owner', 'admin', 'billing', 'support'], req);
@@ -22,14 +25,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const domainRows = await prisma.domain.findMany({
+  const domainRows = await withTenantContext(tenantId, (tx) => tx.domain.findMany({
     where: { tenantId },
     include: {
       customer: { select: { id: true, name: true, email: true } },
       _count: { select: { dnsRecords: true } },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 
   const domains = domainRows.map((r) => ({
     id: r.id,
@@ -51,7 +54,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let user;
   try {
@@ -76,31 +82,34 @@ export async function POST(req: Request) {
 
   const { domain, customerId, autoRenew, nameservers } = parsed.data;
   const normalizedDomain = domain.toLowerCase().trim();
-  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+  // No registrar driver is configured: this endpoint records a request only.
+
 
   // Verify customer belongs to tenant
-  const customer = await prisma.customer.findUnique({
+  const customer = await withTenantContext(tenantId, (tx) => tx.customer.findUnique({
     where: { tenantId_id: { tenantId, id: customerId } },
-  });
+  }));
   if (!customer) {
     return NextResponse.json({ error: 'Customer not found in this tenant' }, { status: 404 });
   }
 
-  const created = await prisma.domain.create({
+  const created = await withTenantContext(tenantId, (tx) => tx.domain.create({
     data: {
       tenantId,
       customerId,
       domainName: normalizedDomain,
-      status: 'active',
-      autoRenew,
-      nameservers,
-      registeredDate: new Date(),
-      expiryDate: expiresAt,
+      status: 'pending_registration',
+      registrar: 'unconfigured',
+      autoRenew: false,
+      nameservers: [],
+      registeredDate: null,
+      expiryDate: null,
+      domainType: 'registration_request',
     },
     include: {
       customer: { select: { id: true, name: true, email: true } },
     },
-  });
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,
@@ -123,6 +132,9 @@ export async function POST(req: Request) {
         nameservers: created.nameservers,
         expiresAt: created.expiryDate,
         customer: created.customer,
+        requestedConfiguration: { autoRenew, nameservers },
+        providerConfigured: false,
+        message: 'Domain request recorded but not registered. No registrar, renewal, nameserver, or external DNS operation was performed.',
       },
     },
     { status: 201 }
