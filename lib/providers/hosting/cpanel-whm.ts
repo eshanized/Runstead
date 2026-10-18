@@ -37,15 +37,18 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
   }
 
   getCapabilities(): ProviderCapabilities {
+    // Only expose capabilities whose full supported lifecycle is implemented.
+    // This adapter currently supports shared-hosting accounts and database actions.
+    // File manager, SSL, DNS, email, and backup restore are not complete end-to-end.
     return {
       sharedHosting: true,
       vps: false,
-      fileManager: true,
+      fileManager: false,
       databaseManager: true,
-      sslManagement: true,
-      dnsManagement: true,
-      emailAccounts: true,
-      backups: true,
+      sslManagement: false,
+      dnsManagement: false,
+      emailAccounts: false,
+      backups: false,
       terminalAccess: false,
     };
   }
@@ -281,30 +284,13 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
     }
   }
 
-  async restoreBackup(username: string, backupId: string): Promise<OperationResult> {
-    try {
-      const data = await this.callWhmApi('restoreaccount', {
-        user: username,
-        type: 'daily',
-        all: '1',
-      });
-      const meta = data?.metadata;
-      if (meta?.result === 1) {
-        return {
-          success: true,
-          message: meta.reason || `Backup restoration scheduled for account ${username}`,
-        };
-      }
-      return {
-        success: false,
-        message: meta?.reason || `Backup restoration unsupported or rejected by WHM for ${backupId}`,
-      };
-    } catch (err: unknown) {
-      return {
-        success: false,
-        message: `Backup restore operation failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
+  async restoreBackup(_username: string, backupId: string): Promise<OperationResult> {
+    // The current adapter does not have a verified restore-point-specific API contract.
+    // Refuse to claim success or trigger an ambiguous restore against an arbitrary daily backup.
+    return {
+      success: false,
+      message: `Backup restoration is not supported by this adapter; no restore was performed (${backupId}).`,
+    };
   }
 
   async restartService(serviceName: string = 'httpd'): Promise<OperationResult> {
