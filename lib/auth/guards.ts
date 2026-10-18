@@ -1,6 +1,5 @@
 import { prisma } from '../db/client.ts';
 import { extractTokenFromRequest, validateSessionToken } from './session.ts';
-import { getLocalDb, resolveLocalTenantId } from '../db/local-db.ts';
 import type { AuthenticatedUser, ResellerStaffRole } from './types.ts';
 import type { TenantMembership, Customer } from '@prisma/client';
 
@@ -20,6 +19,7 @@ export class AuthorizationError extends Error {
 
 /**
  * Extracts and validates the authenticated user from the incoming request.
+ * Header-based overrides and seeded fallback identities are strictly eliminated.
  */
 export async function getAuthenticatedUser(req: Request): Promise<AuthenticatedUser | null> {
   const token = extractTokenFromRequest(req);
@@ -28,27 +28,21 @@ export async function getAuthenticatedUser(req: Request): Promise<AuthenticatedU
     if (user) return user;
   }
 
-  // Header-based override for programmatic or development contexts
-  const headerUserId = req.headers.get('x-runstead-user-id');
-  if (headerUserId) {
-    return {
-      id: headerUserId,
-      email: 'admin@runstead.com',
-      name: 'Platform Administrator',
-      isPlatformAdmin: true,
-      emailVerified: new Date(),
-    };
-  }
-
-  // In non-production or offline dev environments without session cookies, provide the seeded staff admin
-  if (process.env.NODE_ENV !== 'production' || !process.env.DATABASE_URL) {
-    return {
-      id: 'u0000000-0000-0000-0000-000000000001',
-      email: 'admin@runstead.com',
-      name: 'Platform Administrator',
-      isPlatformAdmin: true,
-      emailVerified: new Date(),
-    };
+  // Strictly isolated test-only authentication override (disabled in production and development)
+  if (
+    process.env.NODE_ENV === 'test' &&
+    process.env.ALLOW_TEST_AUTH_OVERRIDE === 'true'
+  ) {
+    const testHeader = req.headers.get('x-test-user-id');
+    if (testHeader) {
+      return {
+        id: testHeader,
+        email: 'test-admin@runstead.test',
+        name: 'Test Administrator',
+        isPlatformAdmin: req.headers.get('x-test-is-admin') === 'true',
+        emailVerified: new Date(),
+      };
+    }
   }
 
   return null;
@@ -106,44 +100,15 @@ export async function requireResellerStaff(
     };
   }
 
-  // Check tenant membership in database
-  let membership: TenantMembership | null = null;
-  try {
-    membership = await prisma.tenantMembership.findUnique({
-      where: {
-        tenantId_userId: {
-          tenantId,
-          userId: user.id,
-        },
+  // Check tenant membership in PostgreSQL database
+  const membership = await prisma.tenantMembership.findUnique({
+    where: {
+      tenantId_userId: {
+        tenantId,
+        userId: user.id,
       },
-    });
-  } catch {
-    // Check local SQLite persistence
-    try {
-      const db = getLocalDb();
-      const resolved = resolveLocalTenantId(tenantId);
-      const row = db.prepare('SELECT * FROM tenant_memberships WHERE tenant_id = ? AND user_id = ?').get(resolved, user.id) as {
-        id: string;
-        tenant_id: string;
-        user_id: string;
-        role: string;
-        created_at: string;
-      } | undefined;
-
-      if (row) {
-        membership = {
-          id: row.id,
-          tenantId: row.tenant_id,
-          userId: row.user_id,
-          role: row.role,
-          createdAt: new Date(row.created_at),
-          updatedAt: new Date(row.created_at),
-        };
-      }
-    } catch {
-      // Ignore
-    }
-  }
+    },
+  });
 
   if (!membership) {
     throw new AuthorizationError('You do not have access to this reseller tenant.');
@@ -160,7 +125,7 @@ export async function requireResellerStaff(
 
 /**
  * Enforces that the user is an authorized end-customer for the given reseller tenant.
- * Crucial Rule: Customer association is ALWAYS resolved from the authenticated user's database record,
+ * Customer association is ALWAYS resolved from the authenticated user's database record,
  * never from client-submitted parameters.
  */
 export async function requireCustomer(
@@ -175,44 +140,13 @@ export async function requireCustomer(
   const user = await requireAuthenticatedUser(req);
 
   // Look up customer record in tenant linked to this user ID
-  let customer: Customer | null = null;
-
-  try {
-    customer = await prisma.customer.findFirst({
-      where: {
-        tenantId,
-        userId: user.id,
-        archived: false,
-      },
-    });
-  } catch {
-    // Database query error: try SQLite fallback
-    try {
-      const db = getLocalDb();
-      const resolved = resolveLocalTenantId(tenantId);
-      const row = db.prepare('SELECT * FROM customers WHERE tenant_id = ? AND (user_id = ? OR email = ?) AND archived = 0').get(resolved, user.id, user.email) as any;
-      if (row) {
-        customer = {
-          id: row.id,
-          tenantId: row.tenant_id,
-          userId: row.user_id,
-          name: row.name,
-          email: row.email,
-          company: row.company,
-          status: row.status,
-          country: row.country,
-          phone: row.phone,
-          creditBalance: row.credit_balance as any,
-          totalRevenue: 0 as any,
-          archived: Boolean(row.archived),
-          createdAt: new Date(row.created_at),
-          updatedAt: new Date(row.updated_at),
-        };
-      }
-    } catch {
-      // Ignore
-    }
-  }
+  const customer = await prisma.customer.findFirst({
+    where: {
+      tenantId,
+      userId: user.id,
+      archived: false,
+    },
+  });
 
   if (!customer) {
     throw new AuthorizationError('No customer profile associated with this account in this tenant.');

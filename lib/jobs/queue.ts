@@ -35,7 +35,11 @@ export async function enqueueJob(
         runAt: options.runAt || new Date(),
       },
     });
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`Failed to enqueue background job: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     const db = getLocalDb();
     const resolvedTenant = resolveLocalTenantId(tenantId);
     const id = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -74,26 +78,67 @@ export async function enqueueJob(
 
 /**
  * Worker runner: processes queued background operational jobs.
- * Supports exponential retry backoff, provider reconciliation, and failure logging.
+ * Supports atomic SKIP LOCKED concurrency, exponential retry backoff, provider reconciliation, and failure logging.
  */
 export async function processPendingJobs(options: { limit?: number } = {}) {
   const limit = Math.min(50, Math.max(1, options.limit || 10));
   const now = new Date();
 
-  // 1. Fetch eligible jobs
+  // 1. Fetch and atomically claim eligible jobs using PostgreSQL FOR UPDATE SKIP LOCKED
   let jobs: BackgroundJob[] = [];
   let isPrisma = true;
 
   try {
-    jobs = await prisma.backgroundJob.findMany({
-      where: {
-        status: 'queued',
-        runAt: { lte: now },
-      },
-      orderBy: { runAt: 'asc' },
-      take: limit,
-    });
-  } catch {
+    const rawJobs = await prisma.$queryRaw<Array<{
+      id: string;
+      tenant_id: string;
+      job_type: string;
+      status: string;
+      attempts: number;
+      max_attempts: number;
+      payload: any;
+      run_at: Date;
+      completed_at: Date | null;
+      error_details: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>>`
+      WITH claimable AS (
+        SELECT id
+        FROM "background_jobs"
+        WHERE status = 'queued' AND run_at <= ${now}
+        ORDER BY run_at ASC
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED
+      )
+      UPDATE "background_jobs" b
+      SET status = 'processing',
+          attempts = b.attempts + 1,
+          updated_at = NOW()
+      FROM claimable
+      WHERE b.id = claimable.id
+      RETURNING b.id, b.tenant_id, b.job_type, b.status, b.attempts, b.max_attempts, b.payload, b.run_at, b.completed_at, b.error_details, b.created_at, b.updated_at
+    `;
+
+    jobs = rawJobs.map((r) => ({
+      id: r.id,
+      tenantId: r.tenant_id,
+      jobType: r.job_type,
+      status: r.status,
+      attempts: r.attempts,
+      maxAttempts: r.max_attempts,
+      payload: r.payload,
+      runAt: r.run_at,
+      completedAt: r.completed_at,
+      errorDetails: r.error_details,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`Failed to claim background jobs: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     isPrisma = false;
     const db = getLocalDb();
     const rows = db.prepare(`
@@ -121,24 +166,12 @@ export async function processPendingJobs(options: { limit?: number } = {}) {
   const results: JobExecutionResult[] = [];
 
   for (const job of jobs) {
-    if (isPrisma) {
-      try {
-        await prisma.backgroundJob.update({
-          where: { id: job.id },
-          data: {
-            status: 'processing',
-            attempts: { increment: 1 },
-          },
-        });
-      } catch {
-        continue;
-      }
-    } else {
+    if (!isPrisma) {
       const db = getLocalDb();
       db.prepare("UPDATE background_jobs SET status = 'processing', attempts = attempts + 1 WHERE id = ?").run(job.id);
     }
 
-    const currentAttempt = job.attempts + 1;
+    const currentAttempt = job.attempts;
     let jobSuccess = false;
     let jobError: string | undefined;
     let jobResultPayload: any;
@@ -251,8 +284,19 @@ async function executeJobHandler(job: BackgroundJob): Promise<any> {
             customerEmail = order.customer.email;
             productName = order.product.name;
           }
+        } else if (p.customerId) {
+          const cust = await prisma.customer.findUnique({
+            where: { tenantId_id: { tenantId: job.tenantId, id: p.customerId } },
+          });
+          if (cust) {
+            customerName = cust.name;
+            customerEmail = cust.email;
+          }
         }
-      } catch {
+      } catch (err) {
+        if (process.env.NODE_ENV === 'production') {
+          throw err;
+        }
         const db = getLocalDb();
         if (p.orderId) {
           order = db.prepare('SELECT * FROM orders WHERE id = ?').get(p.orderId) as any;
@@ -285,36 +329,50 @@ async function executeJobHandler(job: BackgroundJob): Promise<any> {
         throw new Error(result.message || 'Hosting provider failed to provision account');
       }
 
-      // Record provisioned service
+      // Record provisioned service in PostgreSQL
       let serviceId = `s_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       try {
-        if (order) {
-          const service = await prisma.service.create({
-            data: {
-              tenantId: job.tenantId,
-              customerId: order.customerId || order.customer_id,
-              productId: order.productId || order.product_id,
-              orderId: order.id,
-              serviceName: `${productName} (${domain})`,
-              package: packageName,
-              domain,
-              billingCycle: order.billingCycle || order.billing_cycle || 'monthly',
-              price: order.amount || 9.99,
-              ipAddress: result.ipAddress,
-              serverHostname: 'srv1.runstead.infrastructure',
-              username: result.username,
-              status: 'active',
-              nextRenewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            },
-          });
-          serviceId = service.id;
+        const targetCustomerId = order?.customerId || p.customerId;
+        if (targetCustomerId) {
+          let targetProductId = order?.productId || p.productId;
+          if (!targetProductId) {
+            const defaultProd = await prisma.product.findFirst({ where: { tenantId: job.tenantId } });
+            if (defaultProd) targetProductId = defaultProd.id;
+          }
 
-          await prisma.order.update({
-            where: { tenantId_id: { tenantId: job.tenantId, id: order.id } },
-            data: { status: 'active' },
-          });
+          if (targetProductId) {
+            const service = await prisma.service.create({
+              data: {
+                tenantId: job.tenantId,
+                customerId: targetCustomerId,
+                productId: targetProductId,
+                orderId: order?.id || undefined,
+                serviceName: `${productName} (${domain})`,
+                package: packageName,
+                domain,
+                billingCycle: order?.billingCycle || 'monthly',
+                price: order?.amount || 9.99,
+                ipAddress: result.ipAddress,
+                serverHostname: 'srv1.runstead.infrastructure',
+                username: result.username,
+                status: 'active',
+                nextRenewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+            });
+            serviceId = service.id;
+          }
+
+          if (order) {
+            await prisma.order.update({
+              where: { tenantId_id: { tenantId: job.tenantId, id: order.id } },
+              data: { status: 'active' },
+            });
+          }
         }
-      } catch {
+      } catch (err) {
+        if (process.env.NODE_ENV === 'production') {
+          throw err;
+        }
         const db = getLocalDb();
         const resolvedTenant = resolveLocalTenantId(job.tenantId);
         const now = new Date().toISOString();
@@ -373,7 +431,10 @@ async function executeJobHandler(job: BackgroundJob): Promise<any> {
             where: { tenantId_id: { tenantId: job.tenantId, id: payload.serviceId } },
             data: { status: 'suspended' },
           });
-        } catch {
+        } catch (err) {
+          if (process.env.NODE_ENV === 'production') {
+            throw err;
+          }
           const db = getLocalDb();
           db.prepare("UPDATE services SET status = 'suspended', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(payload.serviceId);
         }
@@ -392,7 +453,10 @@ async function executeJobHandler(job: BackgroundJob): Promise<any> {
             where: { tenantId_id: { tenantId: job.tenantId, id: payload.serviceId } },
             data: { status: 'active' },
           });
-        } catch {
+        } catch (err) {
+          if (process.env.NODE_ENV === 'production') {
+            throw err;
+          }
           const db = getLocalDb();
           db.prepare("UPDATE services SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(payload.serviceId);
         }
@@ -411,7 +475,10 @@ async function executeJobHandler(job: BackgroundJob): Promise<any> {
             where: { tenantId_id: { tenantId: job.tenantId, id: payload.serviceId } },
             data: { status: 'canceled' },
           });
-        } catch {
+        } catch (err) {
+          if (process.env.NODE_ENV === 'production') {
+            throw err;
+          }
           const db = getLocalDb();
           db.prepare("UPDATE services SET status = 'canceled', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(payload.serviceId);
         }

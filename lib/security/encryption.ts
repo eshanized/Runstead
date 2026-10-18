@@ -6,10 +6,14 @@ const IV_LENGTH = 12; // Standard 96-bit IV for AES-GCM
 const AUTH_TAG_LENGTH = 16;
 
 /**
- * Derives a 32-byte master encryption key from the environment secret using SHA-256.
+ * Derives a 32-byte master encryption key strictly from ENCRYPTION_KEY.
+ * Never silently substitutes AUTH_SECRET or public fallbacks.
  */
 function getEncryptionKey(): Buffer {
-  const secret = env.ENCRYPTION_KEY || env.AUTH_SECRET || 'runstead-default-fallback-encryption-key-32b';
+  const secret = env.ENCRYPTION_KEY;
+  if (!secret) {
+    throw new Error('ENCRYPTION_KEY is missing from environment.');
+  }
   return crypto.createHash('sha256').update(secret).digest();
 }
 

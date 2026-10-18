@@ -25,7 +25,10 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json({ domains });
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Domains lookup temporarily unavailable' }, { status: 503 });
+    }
     const db = getLocalDb();
     const resolved = resolveLocalTenantId(customer.tenantId);
     const rows = db.prepare('SELECT * FROM domains WHERE tenant_id = ? AND customer_id = ? ORDER BY created_at DESC').all(resolved, customer.id) as any[];
@@ -90,7 +93,10 @@ export async function PATCH(req: Request) {
     }
 
     return NextResponse.json({ success: true, message: 'Domain configuration updated.' });
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Domain update temporarily unavailable' }, { status: 503 });
+    }
     const db = getLocalDb();
     const resolved = resolveLocalTenantId(customer.tenantId);
     const existing = db.prepare('SELECT * FROM domains WHERE id = ? AND tenant_id = ?').get(domainId, resolved) as any;

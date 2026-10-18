@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireCustomer, AuthenticationError } from '@/lib/auth/guards';
-import { getInvoiceById, settleInvoice } from '@/lib/services/invoice.service';
-import { getPaymentGateway } from '@/lib/providers/payment/factory';
+import { getInvoiceById } from '@/lib/services/invoice.service';
+import { getPaymentGateway, PaymentGatewayUnavailableError } from '@/lib/providers/payment/factory';
+import { recordAuditEvent } from '@/lib/services/audit.service';
 
 export async function POST(
   req: Request,
@@ -9,7 +10,11 @@ export async function POST(
 ) {
   const { id: invoiceId } = await params;
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let customer;
   let user;
@@ -22,13 +27,13 @@ export async function POST(
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  // Fetch invoice and ensure ownership
+  // Fetch invoice and ensure ownership in authorized tenant
   const invoice = await getInvoiceById(customer.tenantId, invoiceId);
   if (!invoice) {
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
   }
 
-  if (invoice.customerId !== customer.id && (invoice as any).customer_id !== customer.id) {
+  if (invoice.customerId !== customer.id) {
     return NextResponse.json({ error: 'Forbidden: Invoice does not belong to your account' }, { status: 403 });
   }
 
@@ -47,53 +52,63 @@ export async function POST(
     // Body is optional
   }
 
-  const paymentMethod = body.method || 'card';
-  const idempotencyKey = body.idempotencyKey || `pay_${invoiceId}_${Date.now()}`;
+  const allowSandbox = Boolean(body.allowSandbox && process.env.NODE_ENV !== 'production');
 
-  // Process transaction through payment gateway provider
-  const gateway = getPaymentGateway('sandbox');
-  const totalAmount = Number(invoice.total);
+  let gateway;
+  try {
+    gateway = getPaymentGateway({
+      preferredProvider: body.provider || 'stripe',
+      allowSandbox,
+    });
+  } catch (err: unknown) {
+    if (err instanceof PaymentGatewayUnavailableError) {
+      return NextResponse.json(
+        { error: 'Payment processing is currently unavailable. Please contact billing support.' },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: 'Payment gateway configuration error' }, { status: 500 });
+  }
+
+  const totalAmount = Number(invoice.totalAmount || invoice.total);
 
   try {
     const checkoutResult = await gateway.createCheckoutSession({
       tenantId: customer.tenantId,
-      orderId: (invoice as any).orderId || (invoice as any).order_id || invoiceId,
+      orderId: invoice.orderId || invoiceId,
       invoiceId,
       amount: totalAmount,
       currency: invoice.currency || 'USD',
       customerEmail: customer.email,
       customerName: customer.name,
-      successUrl: `${url.origin}/client/invoices`,
-      cancelUrl: `${url.origin}/client/invoices`,
+      successUrl: `${url.origin}/client/invoices?status=success&invoice_id=${invoiceId}`,
+      cancelUrl: `${url.origin}/client/invoices?status=cancelled&invoice_id=${invoiceId}`,
       description: `Invoice ${invoice.invoiceNumber || invoiceId}`,
     });
 
-    // Settle invoice in database
-    const settlement = await settleInvoice(
-      customer.tenantId,
-      invoiceId,
-      {
+    await recordAuditEvent(customer.tenantId, {
+      actorId: user.id,
+      actorType: 'customer',
+      action: 'payment.session_created',
+      resourceType: 'invoice',
+      resourceId: invoiceId,
+      payload: {
+        provider: checkoutResult.provider,
         amount: totalAmount,
-        currency: invoice.currency || 'USD',
-        method: paymentMethod,
-        providerTransactionId: checkoutResult.sessionId,
-        idempotencyKey,
-        metadata: { gateway: 'sandbox', customerName: customer.name },
+        currency: invoice.currency,
       },
-      user.id
-    );
+    });
 
+    // Note: The invoice remains unpaid until a verified gateway webhook event confirms settlement
     return NextResponse.json({
       success: true,
-      message: 'Payment settled successfully.',
-      invoice: settlement.invoice,
-      payment: settlement.payment,
-      transactionId: checkoutResult.sessionId,
+      checkoutUrl: checkoutResult.checkoutUrl,
+      sessionId: checkoutResult.sessionId,
+      provider: checkoutResult.provider,
+      message: 'Checkout session created. Complete payment via provider to settle invoice.',
     });
   } catch (err: unknown) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Payment settlement failed' },
-      { status: 500 }
-    );
+    const msg = err instanceof Error ? err.message : 'Checkout session initiation failed';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

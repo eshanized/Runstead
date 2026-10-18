@@ -50,7 +50,10 @@ export async function POST(
         },
       },
     });
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Service lookup temporarily unavailable' }, { status: 503 });
+    }
     const { getLocalDb, resolveLocalTenantId } = await import('@/lib/db/local-db');
     const db = getLocalDb();
     const resolved = resolveLocalTenantId(tenantId);
@@ -165,14 +168,16 @@ export async function POST(
       }
 
       case 'restart_service': {
-        await recordAuditEvent(tenantId, {
-          actorId: customer.id,
-          actorType: 'customer',
-          action: 'service.restarted',
-          resourceType: 'service',
-          resourceId: serviceId,
-        });
-        return NextResponse.json({ success: true, message: `Service ${service.serviceName} restart initiated.` });
+        if (!capabilities.vps) {
+          return NextResponse.json(
+            { error: 'Server restart is not supported for shared hosting instances. Contact support if web services require recycling.' },
+            { status: 400 }
+          );
+        }
+        return NextResponse.json(
+          { error: 'Direct server restart is not supported by the configured infrastructure adapter.' },
+          { status: 501 }
+        );
       }
 
       default:

@@ -83,11 +83,15 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
 
     // 4. Return updated order
     const updated = await getOrderById(tenantId, id);
+    const isCompleted = updated?.status === 'active';
     return NextResponse.json({
       success: true,
       order: updated,
       jobId: job.id,
-      message: 'Provisioning process executed against infrastructure provider.',
+      provisioned: isCompleted,
+      message: isCompleted
+        ? 'Service provisioning completed successfully.'
+        : 'Service provisioning job enqueued and currently processing.',
     });
   }
 

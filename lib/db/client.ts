@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 
 /**
  * Validates and retrieves the required database connection string.
- * Fails fast with a descriptive error if environment variables are missing.
+ * Enforces restricted application role in production without silent privileged fallback.
  */
 export function getDatabaseUrl(role: 'admin' | 'app' = 'admin', isTest: boolean = false): string {
   if (isTest) {
@@ -16,13 +16,24 @@ export function getDatabaseUrl(role: 'admin' | 'app' = 'admin', isTest: boolean 
     if (testUrl) return testUrl;
   }
 
-  const standardUrl = role === 'app' ? process.env.APP_DATABASE_URL : process.env.DATABASE_URL;
-  if (standardUrl) return standardUrl;
+  const isProd = process.env.NODE_ENV === 'production';
 
-  // Fallback to DATABASE_URL if APP_DATABASE_URL is not explicitly configured
-  if (role === 'app' && process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
+  if (role === 'app') {
+    if (process.env.APP_DATABASE_URL) {
+      return process.env.APP_DATABASE_URL;
+    }
+    if (isProd) {
+      throw new Error(
+        'Production security boundary violation: APP_DATABASE_URL must be configured for the unprivileged application role (runstead_app) with NOBYPASSRLS.'
+      );
+    }
+    // Only in non-production local development without APP_DATABASE_URL
+    if (process.env.DATABASE_URL) {
+      return process.env.DATABASE_URL;
+    }
   }
+
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
 
   throw new Error(
     `Database configuration error: Missing connection URL for role "${role}" (isTest: ${isTest}). Ensure DATABASE_URL or APP_DATABASE_URL is set in environment.`
@@ -45,18 +56,18 @@ export function createPrismaClient(connectionUrl?: string): PrismaClient {
  */
 export const prisma =
   globalForPrisma.prisma ??
-  createPrismaClient(process.env.DATABASE_URL);
+  createPrismaClient(getDatabaseUrl('admin', process.env.NODE_ENV === 'test'));
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
 /**
- * Unprivileged Application Prisma Client (Simulates runstead_app unprivileged role with NOBYPASSRLS).
+ * Unprivileged Application Prisma Client (Uses runstead_app unprivileged role with NOBYPASSRLS).
  */
 export const appPrisma =
   globalForPrisma.appPrisma ??
-  createPrismaClient(process.env.APP_DATABASE_URL || process.env.DATABASE_URL);
+  createPrismaClient(getDatabaseUrl('app', process.env.NODE_ENV === 'test'));
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.appPrisma = appPrisma;
@@ -71,7 +82,7 @@ if (process.env.NODE_ENV !== 'production') {
  * 
  * @param tenantId The validated UUID of the tenant.
  * @param operation Callback receiving the transaction client.
- * @param client Optional PrismaClient instance (defaults to unprivileged appPrisma or primary prisma).
+ * @param client Optional PrismaClient instance (defaults to unprivileged appPrisma).
  */
 export async function withTenantContext<T>(
   tenantId: string,

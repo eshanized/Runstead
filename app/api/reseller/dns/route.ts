@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireResellerStaff, AuthorizationError, AuthenticationError } from '@/lib/auth/guards';
-import { getLocalDb, resolveLocalTenantId } from '@/lib/db/local-db';
+import { prisma } from '@/lib/db/client';
+import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
 import { recordAuditEvent } from '@/lib/services/audit.service';
 
 const dnsRecordSchema = z.object({
@@ -25,18 +25,43 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const db = getLocalDb();
-  const resolvedTenant = resolveLocalTenantId(tenantId);
-  let query = 'SELECT * FROM dns_records WHERE tenant_id = ?';
-  const params: (string | number)[] = [resolvedTenant];
-
+  let domainId: string | undefined;
   if (domain) {
-    query += ' AND domain = ?';
-    params.push(domain);
+    const dom = await prisma.domain.findFirst({
+      where: { tenantId, domainName: domain.toLowerCase().trim() },
+      select: { id: true },
+    });
+    if (!dom) {
+      return NextResponse.json({ records: [] });
+    }
+    domainId = dom.id;
   }
 
-  const records = db.prepare(query).all(...params);
-  return NextResponse.json({ records });
+  const records = await prisma.dnsRecord.findMany({
+    where: {
+      tenantId,
+      domainId,
+    },
+    include: {
+      domain: { select: { domainName: true } },
+    },
+    orderBy: { host: 'asc' },
+  });
+
+  return NextResponse.json({
+    records: records.map((r) => ({
+      id: r.id,
+      tenantId: r.tenantId,
+      domainId: r.domainId,
+      domain: r.domain?.domainName || domain,
+      type: r.type,
+      host: r.host,
+      value: r.value,
+      ttl: r.ttl,
+      priority: r.priority,
+      createdAt: r.createdAt,
+    })),
+  });
 }
 
 export async function POST(req: Request) {
@@ -64,40 +89,69 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.format() }, { status: 400 });
   }
 
-  const db = getLocalDb();
-  const resolvedTenant = resolveLocalTenantId(tenantId);
-  const id = `dns_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const normalizedDomain = parsed.data.domain.toLowerCase().trim();
 
-  db.prepare(`
-    INSERT INTO dns_records (id, tenant_id, domain, type, host, value, ttl, priority)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    resolvedTenant,
-    parsed.data.domain,
-    parsed.data.type,
-    parsed.data.host,
-    parsed.data.value,
-    parsed.data.ttl,
-    parsed.data.priority ?? null
-  );
+  // Find or verify domain exists in this tenant
+  let targetDomain = await prisma.domain.findFirst({
+    where: { tenantId, domainName: normalizedDomain },
+  });
 
-  await recordAuditEvent(resolvedTenant, {
+  if (!targetDomain) {
+    // Look for customer in tenant to bind domain or require domain creation
+    const firstCustomer = await prisma.customer.findFirst({
+      where: { tenantId, archived: false },
+    });
+    if (!firstCustomer) {
+      return NextResponse.json({ error: 'No customer profile found in tenant to associate domain with.' }, { status: 400 });
+    }
+    targetDomain = await prisma.domain.create({
+      data: {
+        tenantId,
+        customerId: firstCustomer.id,
+        domainName: normalizedDomain,
+        status: 'active',
+      },
+    });
+  }
+
+  const created = await prisma.dnsRecord.create({
+    data: {
+      tenantId,
+      domainId: targetDomain.id,
+      type: parsed.data.type,
+      host: parsed.data.host.trim(),
+      value: parsed.data.value.trim(),
+      ttl: parsed.data.ttl,
+      priority: parsed.data.priority,
+    },
+  });
+
+  await recordAuditEvent(tenantId, {
     actorId: user.id,
     action: 'dns.record_created',
     resourceType: 'dns_record',
-    resourceId: id,
-    payload: { domain: parsed.data.domain, type: parsed.data.type, host: parsed.data.host },
+    resourceId: created.id,
+    payload: { domain: normalizedDomain, type: created.type, host: created.host },
   });
 
-  return NextResponse.json({
-    success: true,
-    record: {
-      id,
-      ...parsed.data,
+  return NextResponse.json(
+    {
+      success: true,
+      record: {
+        id: created.id,
+        tenantId: created.tenantId,
+        domainId: created.domainId,
+        domain: normalizedDomain,
+        type: created.type,
+        host: created.host,
+        value: created.value,
+        ttl: created.ttl,
+        priority: created.priority,
+      },
+      message: 'DNS record created in authoritative database. External DNS propagation pending nameserver update.',
     },
-    message: 'DNS record created and propagated to nameservers.',
-  }, { status: 201 });
+    { status: 201 }
+  );
 }
 
 export async function DELETE(req: Request) {
@@ -118,16 +172,21 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const db = getLocalDb();
-  const resolvedTenant = resolveLocalTenantId(tenantId);
-  db.prepare('DELETE FROM dns_records WHERE tenant_id = ? AND id = ?').run(resolvedTenant, id);
+  await prisma.dnsRecord.delete({
+    where: {
+      tenantId_id: {
+        tenantId,
+        id,
+      },
+    },
+  });
 
-  await recordAuditEvent(resolvedTenant, {
+  await recordAuditEvent(tenantId, {
     actorId: user.id,
     action: 'dns.record_deleted',
     resourceType: 'dns_record',
     resourceId: id,
   });
 
-  return NextResponse.json({ success: true, message: 'DNS record deleted.' });
+  return NextResponse.json({ success: true, message: 'DNS record deleted from database.' });
 }

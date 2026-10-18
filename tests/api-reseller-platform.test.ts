@@ -27,9 +27,10 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
   });
 
   test('2. Customer Lifecycle: persists in database, updates profile, and archives', async () => {
+    const testEmail = `itest_${Date.now()}@customer.org`;
     const created = await createCustomer(tenantId, {
       name: 'Integration Test Customer',
-      email: 'itest@customer.org',
+      email: testEmail,
       company: 'Integration Corp',
       country: 'US',
       phone: '+1 555 987 6543',
@@ -82,12 +83,20 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
     // 1. Create customer
     const customer = await createCustomer(tenantId, {
       name: 'Billing Test User',
-      email: 'billing-user@test.org',
+      email: `billing_user_${Date.now()}@test.org`,
     });
 
-    // 2. Fetch starter product
-    const products = await listProducts(tenantId);
-    const primaryProduct = products[0];
+    // 2. Fetch starter product or create if missing
+    let products = await listProducts(tenantId);
+    let primaryProduct: any = products[0];
+    if (!primaryProduct) {
+      primaryProduct = await createProduct(tenantId, {
+        name: 'Starter Cloud Hosting',
+        type: 'shared',
+        description: 'Starter shared hosting tier',
+        pricing: [{ cycle: 'monthly', price: 9.99 }],
+      });
+    }
 
     // 3. Create real order
     const orderResult = await createOrder(tenantId, customer.id, [
@@ -99,7 +108,8 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
 
     // 4. Settle invoice
     const settlement = await settleInvoice(tenantId, orderResult.invoice.id, {
-      amount: Number(orderResult.order.amount),
+      amount: Number(orderResult.invoice.totalAmount),
+      currency: orderResult.invoice.currency,
       method: 'stripe_credit_card',
       providerTransactionId: `ch_${Date.now()}`,
     });
@@ -112,12 +122,16 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
   });
 
   test('5. Operational Queue: enqueues and processes hosting provisioning and service actions', async () => {
+    const cust5 = await createCustomer(tenantId, {
+      name: 'Queue Test Customer',
+      email: `queue_test_${Date.now()}@test.org`,
+    });
     const job = await enqueueJob(tenantId, 'provision_service', {
       tenantId,
-      customerId: 'c0000000-0000-0000-0000-000000000001',
-      domain: 'test-infrastructure.io',
+      customerId: cust5.id,
+      domain: `test-infrastructure-${Date.now().toString().slice(-4)}.io`,
       package: 'Starter Cloud Hosting',
-      username: 'testinfra',
+      username: `testinfra${Date.now().toString().slice(-4)}`,
     });
     assert.ok(job.id);
     assert.equal(job.status, 'queued');
@@ -130,7 +144,36 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
   });
 
   test('6. Service Lifecycle: suspends, restores, and terminates hosting instances', async () => {
-    const services = await listCustomerServices(tenantId, 'c0000000-0000-0000-0000-000000000001');
+    const cust6 = await createCustomer(tenantId, {
+      name: 'Service Lifecycle Customer',
+      email: `service_lifecycle_${Date.now()}@test.org`,
+    });
+    let prods = await listProducts(tenantId);
+    let prod: any = prods[0];
+    if (!prod) {
+      prod = await createProduct(tenantId, {
+        name: 'Standard Cloud Hosting',
+        type: 'shared',
+        description: 'Standard tier',
+        pricing: [{ cycle: 'monthly', price: 9.99 }],
+      });
+    }
+    const { prisma } = await import('../lib/db/client.ts');
+    const service = await prisma.service.create({
+      data: {
+        tenantId,
+        customerId: cust6.id,
+        productId: prod.id,
+        serviceName: 'Standard Hosting (lifecycle.org)',
+        package: 'Standard',
+        domain: 'lifecycle.org',
+        billingCycle: 'monthly',
+        price: 9.99,
+        status: 'active',
+      },
+    });
+
+    const services = await listCustomerServices(tenantId, cust6.id);
     assert.ok(services.length > 0);
     const serviceId = services[0].id;
 
@@ -144,8 +187,12 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
   });
 
   test('7. Support Ticket System: creates ticket, records messages, and updates status', async () => {
+    const cust7 = await createCustomer(tenantId, {
+      name: 'Alex Chen',
+      email: `ticket_alex_${Date.now()}@test.org`,
+    });
     const created = await createTicket(tenantId, {
-      customerId: 'c0000000-0000-0000-0000-000000000001',
+      customerId: cust7.id,
       subject: 'Server port 443 handshake question',
       category: 'Technical Support',
       priority: 'high',
@@ -228,8 +275,9 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
     const isInvalid = await verifyPassword('WrongPassword!', passwordHash);
     assert.equal(isInvalid, false, 'Invalid password must be rejected');
 
+    const testUserId = '00000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0');
     const createdUser = createLocalUser({
-      id: `u_test_${Date.now()}`,
+      id: testUserId,
       email: testEmail,
       name: 'Reseller Operations Lead',
       passwordHash,
@@ -281,10 +329,11 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
     assert.ok(order.invoice, 'Order creation must generate invoice');
     assert.equal(order.invoice.status, 'pending');
 
-    // Settle invoice with idempotency
+    // Settle invoice with idempotency using authoritative invoice total
+    const invoiceAmount = Number(order.invoice.totalAmount);
     const idempotencyKey = `test_portal_idem_${Date.now()}`;
     const settlement = await settleInvoice(tenantId, order.invoice.id, {
-      amount: 49.99,
+      amount: invoiceAmount,
       currency: 'USD',
       method: 'card',
       providerTransactionId: `tx_sandbox_${Date.now()}`,
@@ -296,7 +345,7 @@ describe('Real Hosting Platform Operations & Dual DB Engine Suite', () => {
 
     // Duplicate charge attempt must return alreadySettled: true
     const duplicate = await settleInvoice(tenantId, order.invoice.id, {
-      amount: 49.99,
+      amount: invoiceAmount,
       currency: 'USD',
       method: 'card',
       providerTransactionId: `tx_sandbox_dup`,

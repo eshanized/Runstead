@@ -44,34 +44,55 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
 
   try {
     if (action === 'suspend') {
-      const updated = await updateServiceStatus(tenantId, id, 'suspended', reason, user.id);
-      await enqueueJob(tenantId, 'suspend_service', {
+      const job = await enqueueJob(tenantId, 'suspend_service', {
         serviceId: id,
         username: service.username || 'client',
         reason,
       });
-      await processPendingJobs({ limit: 10 });
+      const runner = await processPendingJobs({ limit: 10 });
+      const jobResult = runner.results.find((r) => r.jobId === job.id);
+      if (jobResult && jobResult.status === 'failed') {
+        return NextResponse.json(
+          { error: `Provider suspension failed: ${jobResult.error || 'Hosting provider error'}` },
+          { status: 502 }
+        );
+      }
+      const updated = await getServiceById(tenantId, id);
       return NextResponse.json({ success: true, service: updated, message: 'Service suspended successfully.' });
     }
 
     if (action === 'unsuspend' || action === 'restore') {
-      const updated = await updateServiceStatus(tenantId, id, 'active', null, user.id);
-      await enqueueJob(tenantId, 'unsuspend_service', {
+      const job = await enqueueJob(tenantId, 'unsuspend_service', {
         serviceId: id,
         username: service.username || 'client',
       });
-      await processPendingJobs({ limit: 10 });
+      const runner = await processPendingJobs({ limit: 10 });
+      const jobResult = runner.results.find((r) => r.jobId === job.id);
+      if (jobResult && jobResult.status === 'failed') {
+        return NextResponse.json(
+          { error: `Provider restore failed: ${jobResult.error || 'Hosting provider error'}` },
+          { status: 502 }
+        );
+      }
+      const updated = await getServiceById(tenantId, id);
       return NextResponse.json({ success: true, service: updated, message: 'Service restored to active status.' });
     }
 
     if (action === 'terminate') {
-      const updated = await updateServiceStatus(tenantId, id, 'canceled', reason, user.id);
-      await enqueueJob(tenantId, 'terminate_service', {
+      const job = await enqueueJob(tenantId, 'terminate_service', {
         serviceId: id,
         username: service.username || 'client',
         reason,
       });
-      await processPendingJobs({ limit: 10 });
+      const runner = await processPendingJobs({ limit: 10 });
+      const jobResult = runner.results.find((r) => r.jobId === job.id);
+      if (jobResult && jobResult.status === 'failed') {
+        return NextResponse.json(
+          { error: `Provider termination failed: ${jobResult.error || 'Hosting provider error'}` },
+          { status: 502 }
+        );
+      }
+      const updated = await getServiceById(tenantId, id);
       return NextResponse.json({ success: true, service: updated, message: 'Service terminated.' });
     }
 

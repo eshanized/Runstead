@@ -106,13 +106,19 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
       const meta = data?.metadata;
       if (meta?.result === 1) {
         const output = data?.data || {};
+        const nameservers: string[] = [];
+        if (output.nameserver) nameservers.push(output.nameserver);
+        if (output.nameserver2) nameservers.push(output.nameserver2);
+        if (output.nameserver3) nameservers.push(output.nameserver3);
+        if (output.nameserver4) nameservers.push(output.nameserver4);
+
         return {
           success: true,
           username: params.username,
           domain: params.domain,
-          ipAddress: output.ip || '198.51.100.1',
-          nameservers: output.nameserver ? [output.nameserver, output.nameserver2 || output.nameserver] : ['ns1.runstead.org', 'ns2.runstead.org'],
-          message: meta.reason || 'Account provisioned successfully',
+          ipAddress: output.ip || '',
+          nameservers,
+          message: meta.reason || 'Account provisioned successfully on WHM node',
           rawResponse: redactSensitiveData(output),
         };
       }
@@ -179,10 +185,15 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
 
   async getAccountSummary(username: string): Promise<AccountSummary> {
     const data = await this.callWhmApi('accountsummary', { user: username });
-    const acct = data?.data?.acct?.[0] || {};
+    const acct = data?.data?.acct?.[0];
+    if (!acct) {
+      throw new Error(`Account summary for "${username}" not found on WHM node.`);
+    }
 
     const diskUsed = parseInt(acct.diskused || '0', 10);
-    const diskLimit = parseInt(acct.disklimit || '10240', 10);
+    const diskLimit = parseInt(acct.disklimit || '0', 10);
+    const bwUsed = parseInt(acct.bandwidthused || '0', 10);
+    const bwLimit = parseInt(acct.bandwidthlimit || '0', 10);
 
     return {
       username,
@@ -190,9 +201,9 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
       status: acct.suspended ? 'suspended' : 'active',
       diskUsedMb: Math.round(diskUsed),
       diskLimitMb: Math.round(diskLimit),
-      bandwidthUsedMb: 0,
-      bandwidthLimitMb: 102400,
-      ipAddress: acct.ip || '198.51.100.1',
+      bandwidthUsedMb: Math.round(bwUsed),
+      bandwidthLimitMb: Math.round(bwLimit),
+      ipAddress: acct.ip || '',
       plan: acct.plan || 'standard',
     };
   }
@@ -216,41 +227,41 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
   }
 
   async listDatabases(username: string): Promise<DatabaseInfo[]> {
-    try {
-      const data = await this.callWhmApi('uapi', {
-        user: username,
-        cpanel_service: 'Mysql',
-        cpanel_function: 'list_databases',
-      });
-      const dbs = data?.result?.data || [];
-      return dbs.map((d: any) => ({
-        name: d.database || d.name,
-        user: d.user || username,
-        sizeMb: Math.round((d.size || 0) / (1024 * 1024)),
-      }));
-    } catch {
-      return [];
+    const data = await this.callWhmApi('uapi', {
+      user: username,
+      cpanel_service: 'Mysql',
+      cpanel_function: 'list_databases',
+    });
+    if (data?.result?.status !== 1) {
+      const err = data?.result?.errors?.[0] || 'Failed to list databases from cPanel';
+      throw new Error(`cPanel MySQL error: ${err}`);
     }
+    const dbs = data?.result?.data || [];
+    return dbs.map((d: any) => ({
+      name: d.database || d.name,
+      user: d.user || username,
+      sizeMb: Math.round((d.size || 0) / (1024 * 1024)),
+    }));
   }
 
   async listBackups(username: string): Promise<BackupInfo[]> {
-    try {
-      const data = await this.callWhmApi('uapi', {
-        user: username,
-        cpanel_service: 'Backup',
-        cpanel_function: 'list_backups',
-      });
-      const backups = data?.result?.data || [];
-      return backups.map((b: any, idx: number) => ({
-        id: b.id || `bak-${idx}`,
-        filename: b.file || `backup-${b.time}.tar.gz`,
-        sizeMb: Math.round((b.size || 0) / (1024 * 1024)),
-        createdAt: b.time || new Date().toISOString(),
-        status: 'available',
-      }));
-    } catch {
-      return [];
+    const data = await this.callWhmApi('uapi', {
+      user: username,
+      cpanel_service: 'Backup',
+      cpanel_function: 'list_backups',
+    });
+    if (data?.result?.status !== 1) {
+      const err = data?.result?.errors?.[0] || 'Failed to list backups from cPanel';
+      throw new Error(`cPanel Backup error: ${err}`);
     }
+    const backups = data?.result?.data || [];
+    return backups.map((b: any, idx: number) => ({
+      id: b.id || `bak-${idx}`,
+      filename: b.file || `backup-${b.time}.tar.gz`,
+      sizeMb: Math.round((b.size || 0) / (1024 * 1024)),
+      createdAt: b.time || new Date().toISOString(),
+      status: 'available',
+    }));
   }
 
   async createBackup(username: string): Promise<OperationResult> {
@@ -263,7 +274,7 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
       const res = data?.result;
       return {
         success: res?.status === 1,
-        message: res?.errors?.[0] || 'Backup initiated',
+        message: res?.errors?.[0] || 'Backup initiated on node',
       };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
@@ -271,9 +282,41 @@ export class CpanelWhmAdapter implements HostingProviderAdapter {
   }
 
   async restoreBackup(username: string, backupId: string): Promise<OperationResult> {
-    return {
-      success: true,
-      message: `Backup ${backupId} restoration scheduled on WHM node.`,
-    };
+    try {
+      const data = await this.callWhmApi('restoreaccount', {
+        user: username,
+        type: 'daily',
+        all: '1',
+      });
+      const meta = data?.metadata;
+      if (meta?.result === 1) {
+        return {
+          success: true,
+          message: meta.reason || `Backup restoration scheduled for account ${username}`,
+        };
+      }
+      return {
+        success: false,
+        message: meta?.reason || `Backup restoration unsupported or rejected by WHM for ${backupId}`,
+      };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        message: `Backup restore operation failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  async restartService(serviceName: string = 'httpd'): Promise<OperationResult> {
+    try {
+      const data = await this.callWhmApi('restartservice', { service: serviceName });
+      const meta = data?.metadata;
+      return {
+        success: meta?.result === 1,
+        message: meta?.reason || `Service ${serviceName} restart initiated on node`,
+      };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
+    }
   }
 }

@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
   }
 
-  // Fetch full details with memberships and customer profiles
+  // Fetch full details with memberships and customer profiles from PostgreSQL
   let fullUser: any = null;
   try {
     fullUser = await prisma.user.findUnique({
@@ -26,31 +26,12 @@ export async function GET(req: Request) {
         },
       },
     });
-  } catch {
-    const { findLocalUserById } = await import('@/lib/db/local-db');
-    fullUser = findLocalUserById(user.id);
+  } catch (err: unknown) {
+    return NextResponse.json({ error: 'User lookup temporarily unavailable' }, { status: 503 });
   }
 
   if (!fullUser) {
-    // If not found in DB but authenticated in session
-    return NextResponse.json({
-      authenticated: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        isPlatformAdmin: user.isPlatformAdmin,
-      },
-      tenants: [
-        {
-          tenantId: 'e0000000-0000-0000-0000-000000000001',
-          role: 'owner',
-          name: 'Tonmoy Hosting Platform',
-          slug: 'default',
-        },
-      ],
-      customerProfiles: [],
-    });
+    return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
   }
 
   return NextResponse.json({

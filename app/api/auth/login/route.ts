@@ -53,21 +53,26 @@ export async function POST(req: Request) {
         },
       },
     });
-  } catch {
-    const { findLocalUserByEmail } = await import('@/lib/db/local-db');
-    user = findLocalUserByEmail(normalizedEmail);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Database error';
+    return NextResponse.json({ error: 'Authentication service temporarily unavailable' }, { status: 503 });
   }
 
   if (!user) {
     return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
   }
 
-  // If user has a passwordHash, verify it. If seeded default without passwordHash, bootstrap password on first login.
-  if (user.passwordHash) {
-    const isPasswordValid = await verifyPassword(password, user.passwordHash);
-    if (!isPasswordValid) {
-      return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
-    }
+  // Enforce password verification - fail closed if user has no passwordHash
+  if (!user.passwordHash) {
+    return NextResponse.json(
+      { error: 'Account does not have a password configured. Please use account recovery or set a password.' },
+      { status: 401 }
+    );
+  }
+
+  const isPasswordValid = await verifyPassword(password, user.passwordHash);
+  if (!isPasswordValid) {
+    return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
   }
 
   // Issue session
@@ -79,7 +84,7 @@ export async function POST(req: Request) {
       email: user.email,
       name: user.name,
       isPlatformAdmin: Boolean(user.isPlatformAdmin),
-      emailVerified: new Date(),
+      emailVerified: user.emailVerified || new Date(),
     },
   });
 

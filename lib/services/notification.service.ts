@@ -66,11 +66,20 @@ export async function sendTransactionalNotification(
     }
   }
 
-  // 2. Unconfigured state: explicit mock delivery recorded without claiming live delivery
+  // 2. Unconfigured state: fail closed in production, truthfully mark unaccepted in dev/test
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      accepted: false,
+      status: 'failed',
+      error: 'Production email delivery failed: RESEND_API_KEY is not configured.',
+    };
+  }
+
   const mockId = `mock-email-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   return {
-    accepted: true,
+    accepted: false,
     messageId: mockId,
     status: 'mock_delivered',
+    error: 'Email delivery simulated in development/test: RESEND_API_KEY is not configured.',
   };
 }

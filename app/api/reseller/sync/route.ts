@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireResellerStaff, AuthorizationError, AuthenticationError } from '@/lib/auth/guards';
-import { getLocalDb, resolveLocalTenantId } from '@/lib/db/local-db';
+import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
+import { prisma } from '@/lib/db/client';
 import { listCustomers } from '@/lib/services/customer.service';
 import { listProducts } from '@/lib/services/product.service';
 import { listOrders } from '@/lib/services/order.service';
@@ -19,9 +19,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const resolvedTenant = resolveLocalTenantId(tenantId);
-  const db = getLocalDb();
-
   const [
     custResult,
     prodResult,
@@ -29,6 +26,10 @@ export async function GET(req: Request) {
     invResult,
     servResult,
     tickResult,
+    domainRows,
+    dnsRecords,
+    providerRows,
+    tenantRow,
   ] = await Promise.all([
     listCustomers(tenantId, { limit: 100 }),
     listProducts(tenantId, { availableOnly: false }),
@@ -36,23 +37,29 @@ export async function GET(req: Request) {
     listInvoices(tenantId, { limit: 100 }),
     listResellerServices(tenantId, { limit: 100 }),
     listTickets(tenantId, { limit: 100 }),
+    prisma.domain.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
+    prisma.dnsRecord.findMany({
+      where: { tenantId },
+      include: { domain: { select: { domainName: true } } },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.providerCredential.findMany({
+      where: { tenantId },
+      select: { id: true, providerName: true, status: true, lastTestedAt: true },
+    }),
+    prisma.tenant.findUnique({ where: { id: tenantId } }),
   ]);
-
-  const dnsRecords = db.prepare('SELECT * FROM dns_records WHERE tenant_id = ?').all(resolvedTenant);
-  const domainRows = db.prepare('SELECT * FROM domains WHERE tenant_id = ?').all(resolvedTenant) as any[];
-  const providerRows = db.prepare('SELECT id, provider_name, status, last_verified_at, updated_at FROM provider_credentials WHERE tenant_id = ?').all(resolvedTenant) as any[];
-  const tenantRow = db.prepare('SELECT * FROM tenants WHERE id = ?').get(resolvedTenant) as any;
 
   return NextResponse.json({
     syncedAt: new Date().toISOString(),
     tenant: {
-      id: resolvedTenant,
+      id: tenantRow?.id || tenantId,
       name: tenantRow?.name || 'Runstead Platform',
       slug: tenantRow?.slug || 'default',
       currency: tenantRow?.currency || 'USD',
-      taxRate: tenantRow?.tax_rate || 0.0,
-      brand: tenantRow?.brand_config ? JSON.parse(tenantRow.brand_config) : {},
-      business: tenantRow?.business_settings ? JSON.parse(tenantRow.business_settings) : {},
+      taxRate: Number(tenantRow?.taxRate || 0.0),
+      brand: tenantRow?.brandConfig || {},
+      business: tenantRow?.businessSettings || {},
     },
     customers: custResult.customers,
     products: prodResult,
@@ -62,21 +69,33 @@ export async function GET(req: Request) {
     tickets: tickResult.tickets,
     domains: domainRows.map((d) => ({
       id: d.id,
-      domain: d.domain,
-      customerId: d.customer_id,
+      domain: d.domainName,
+      domainName: d.domainName,
+      customerId: d.customerId,
       status: d.status,
-      registeredDate: d.registered_at,
-      expiryDate: d.expires_at || new Date().toISOString(),
-      autoRenew: Boolean(d.auto_renew),
-      nameservers: d.nameservers ? (typeof d.nameservers === 'string' ? JSON.parse(d.nameservers) : d.nameservers) : ['ns1.runstead.net', 'ns2.runstead.net'],
-      dnsZoneId: d.dns_zone_id,
+      registeredDate: d.registeredDate,
+      expiryDate: d.expiryDate || new Date().toISOString(),
+      autoRenew: Boolean(d.autoRenew),
+      nameservers: d.nameservers || ['ns1.runstead.net', 'ns2.runstead.net'],
     })),
-    dnsRecords,
+    dnsRecords: dnsRecords.map((r) => ({
+      id: r.id,
+      tenantId: r.tenantId,
+      domainId: r.domainId,
+      domain: r.domain?.domainName,
+      type: r.type,
+      host: r.host,
+      value: r.value,
+      ttl: r.ttl,
+      priority: r.priority,
+    })),
     integrations: providerRows.map((p) => ({
       id: p.id,
-      name: p.provider_name,
+      name: p.providerName,
+      providerName: p.providerName,
       status: p.status,
-      lastVerifiedAt: p.last_verified_at,
+      lastVerifiedAt: p.lastTestedAt,
+      lastTestedAt: p.lastTestedAt,
     })),
   });
 }

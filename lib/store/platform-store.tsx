@@ -21,20 +21,35 @@ const PlatformContext = createContext<PlatformContextValue | null>(null);
 
 export function PlatformProvider({ children }: { children: React.ReactNode }) {
   const [state, setStateInternal] = useState<PlatformState>(platformSeedDefaults);
+  const [activeTenantId, setActiveTenantId] = useState('default');
   const [isHydrated, setIsHydrated] = useState(false);
   const isFirstRender = useRef(true);
 
-  // Authoritative server synchronization with PostgreSQL / local SQLite
+  // Authoritative server synchronization with PostgreSQL
   const syncServerState = useCallback(async () => {
     try {
-      const res = await fetch('/api/reseller/sync?tenantId=default');
+      let resolvedTenant = activeTenantId;
+      try {
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData?.tenants?.[0]?.tenantId) {
+            resolvedTenant = meData.tenants[0].tenantId;
+            setActiveTenantId(resolvedTenant);
+          }
+        }
+      } catch {
+        // Guest or offline
+      }
+
+      const res = await fetch(`/api/reseller/sync?tenantId=${encodeURIComponent(resolvedTenant)}`);
       if (!res.ok) return;
       const d = await res.json();
 
       setStateInternal((p) => {
         const next: PlatformState = { ...p };
 
-        if (Array.isArray(d.customers) && d.customers.length > 0) {
+        if (Array.isArray(d.customers)) {
           next.customers = d.customers.map((c: any) => ({
             id: c.id,
             name: c.name,
@@ -54,7 +69,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (Array.isArray(d.products) && d.products.length > 0) {
+        if (Array.isArray(d.products)) {
           next.products = d.products.map((pr: any) => ({
             id: pr.id,
             name: pr.name,
@@ -70,7 +85,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (Array.isArray(d.orders) && d.orders.length > 0) {
+        if (Array.isArray(d.orders)) {
           next.orders = d.orders.map((o: any) => ({
             id: o.id,
             orderNumber: o.orderNumber,
@@ -87,7 +102,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (Array.isArray(d.invoices) && d.invoices.length > 0) {
+        if (Array.isArray(d.invoices)) {
           next.invoices = d.invoices.map((inv: any) => ({
             id: inv.id,
             invoiceNumber: inv.invoiceNumber,
@@ -107,7 +122,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (Array.isArray(d.services) && d.services.length > 0) {
+        if (Array.isArray(d.services)) {
           next.services = d.services.map((s: any) => ({
             id: s.id,
             serviceName: s.serviceName || `Service (${s.domain || 'Site'})`,
@@ -140,7 +155,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (Array.isArray(d.tickets) && d.tickets.length > 0) {
+        if (Array.isArray(d.tickets)) {
           next.tickets = d.tickets.map((t: any) => ({
             id: t.id,
             ticketNumber: t.ticketNumber,
@@ -163,7 +178,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (Array.isArray(d.domains) && d.domains.length > 0) {
+        if (Array.isArray(d.domains)) {
           next.domains = d.domains.map((dom: any) => ({
             id: dom.id,
             domain: dom.domain,
@@ -196,7 +211,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsHydrated(true);
     }
-  }, []);
+  }, [activeTenantId]);
 
   // Initial mount: synchronize with server
   useEffect(() => {
@@ -208,7 +223,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const createCustomer = useCallback(async (data: { name: string; email: string; company?: string | null; country?: string; phone?: string | null }) => {
-    const res = await fetch('/api/reseller/customers?tenantId=default', {
+    const res = await fetch(`/api/reseller/customers?tenantId=${encodeURIComponent(activeTenantId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -219,10 +234,10 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
     await syncServerState();
     return resData.customer;
-  }, [syncServerState]);
+  }, [activeTenantId, syncServerState]);
 
   const updateCustomer = useCallback(async (id: string, data: Partial<Customer>) => {
-    const res = await fetch(`/api/reseller/customers/${id}?tenantId=default`, {
+    const res = await fetch(`/api/reseller/customers/${id}?tenantId=${encodeURIComponent(activeTenantId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -233,10 +248,10 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
     await syncServerState();
     return resData.customer;
-  }, [syncServerState]);
+  }, [activeTenantId, syncServerState]);
 
   const createProduct = useCallback(async (data: any) => {
-    const res = await fetch('/api/reseller/products?tenantId=default', {
+    const res = await fetch(`/api/reseller/products?tenantId=${encodeURIComponent(activeTenantId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -247,10 +262,10 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
     await syncServerState();
     return resData.product;
-  }, [syncServerState]);
+  }, [activeTenantId, syncServerState]);
 
   const createOrder = useCallback(async (data: any) => {
-    const res = await fetch('/api/reseller/orders?tenantId=default', {
+    const res = await fetch(`/api/reseller/orders?tenantId=${encodeURIComponent(activeTenantId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -261,10 +276,10 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
     await syncServerState();
     return resData.order;
-  }, [syncServerState]);
+  }, [activeTenantId, syncServerState]);
 
   const createDomain = useCallback(async (data: any) => {
-    const res = await fetch('/api/reseller/domains?tenantId=default', {
+    const res = await fetch(`/api/reseller/domains?tenantId=${encodeURIComponent(activeTenantId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -275,7 +290,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
     await syncServerState();
     return resData.domain;
-  }, [syncServerState]);
+  }, [activeTenantId, syncServerState]);
 
   const resetDemo = useCallback(() => {
     syncServerState();

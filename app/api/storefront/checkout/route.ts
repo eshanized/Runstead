@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from '@/lib/auth/guards';
 import { createOrder } from '@/lib/services/order.service';
 import { getPaymentGateway } from '@/lib/providers/payment/factory';
 import { checkRateLimit } from '@/lib/security/rate-limit';
+import { env } from '@/lib/config/env';
 
 const checkoutSchema = z.object({
   tenantSlug: z.string().min(1),
@@ -25,6 +26,8 @@ const checkoutSchema = z.object({
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
 });
+
+import { sanitizeRedirectUrl } from '@/lib/security/redirect';
 
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
@@ -48,46 +51,58 @@ export async function POST(req: Request) {
 
   const { tenantSlug, customer: customerInput, items, successUrl, cancelUrl } = parsed.data;
 
-  // 1. Resolve Tenant
+  // 1. Resolve Tenant from PostgreSQL
   let tenant: { id: string; name: string; currency: string } | null = null;
   try {
-    const t = await prisma.tenant.findUnique({
+    tenant = await prisma.tenant.findUnique({
       where: { slug: tenantSlug.toLowerCase() },
+      select: { id: true, name: true, currency: true },
     });
-    if (t) tenant = t;
-  } catch {
-    // SQLite fallback
-  }
-
-  if (!tenant) {
-    const { getLocalDb, resolveLocalTenantId } = await import('@/lib/db/local-db');
-    const db = getLocalDb();
-    const resolvedId = resolveLocalTenantId(tenantSlug);
-    const row = db.prepare('SELECT id, name, currency FROM tenants WHERE id = ? OR slug = ?').get(resolvedId, tenantSlug.toLowerCase()) as any;
-    if (row) {
-      tenant = { id: row.id, name: row.name, currency: row.currency };
-    }
+  } catch (err: unknown) {
+    return NextResponse.json({ error: 'Storefront service unavailable' }, { status: 503 });
   }
 
   if (!tenant) {
     return NextResponse.json({ error: 'Reseller storefront tenant not found' }, { status: 404 });
   }
 
-  // 2. Identify or Create Customer
+  // 2. Identify or Create Customer securely (prevent account hijacking)
   const authUser = await getAuthenticatedUser(req);
   const normalizedEmail = customerInput.email.toLowerCase().trim();
 
-  let customer: { id: string; name: string; email: string } | null = null;
+  let customer: { id: string; name: string; email: string; userId?: string | null } | null = null;
   try {
-    const c = await prisma.customer.findFirst({
+    const existingCustomer = await prisma.customer.findFirst({
       where: {
         tenantId: tenant.id,
         email: normalizedEmail,
       },
     });
 
-    if (!c) {
-      const created = await prisma.customer.create({
+    if (existingCustomer) {
+      if (existingCustomer.userId) {
+        // Customer profile belongs to an existing authenticated user
+        if (!authUser || authUser.id !== existingCustomer.userId) {
+          return NextResponse.json(
+            { error: 'An account with this email address already exists. Please sign in to proceed with checkout.' },
+            { status: 403 }
+          );
+        }
+        customer = existingCustomer;
+      } else {
+        // Unlinked profile: link to authenticated user if signed in
+        if (authUser) {
+          customer = await prisma.customer.update({
+            where: { tenantId_id: { tenantId: tenant.id, id: existingCustomer.id } },
+            data: { userId: authUser.id },
+            select: { id: true, name: true, email: true, userId: true },
+          });
+        } else {
+          customer = existingCustomer;
+        }
+      }
+    } else {
+      customer = await prisma.customer.create({
         data: {
           tenantId: tenant.id,
           name: customerInput.name,
@@ -97,25 +112,12 @@ export async function POST(req: Request) {
           phone: customerInput.phone,
           userId: authUser ? authUser.id : undefined,
         },
+        select: { id: true, name: true, email: true, userId: true },
       });
-      customer = created;
-    } else {
-      customer = c;
     }
-  } catch {
-    const { getLocalDb } = await import('@/lib/db/local-db');
-    const db = getLocalDb();
-    const row = db.prepare('SELECT id, name, email FROM customers WHERE tenant_id = ? AND email = ?').get(tenant.id, normalizedEmail) as any;
-    if (row) {
-      customer = row;
-    } else {
-      const id = `c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      db.prepare(`
-        INSERT INTO customers (id, tenant_id, name, email, company, country, phone)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(id, tenant.id, customerInput.name, normalizedEmail, customerInput.company || null, customerInput.country || 'US', customerInput.phone || null);
-      customer = { id, name: customerInput.name, email: normalizedEmail };
-    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Database error';
+    return NextResponse.json({ error: `Customer profile error: ${msg}` }, { status: 500 });
   }
 
   if (!customer) {
@@ -132,33 +134,57 @@ export async function POST(req: Request) {
 
   const { order, invoice } = orderResult;
 
-  // 4. Create Payment Gateway Session
+  // 4. Validate redirect URLs against configured application origins
+  const safeSuccessUrl = sanitizeRedirectUrl(
+    successUrl,
+    req.url,
+    `/client/invoices?order_id=${order.id}&invoice_id=${invoice.id}`
+  );
+  const safeCancelUrl = sanitizeRedirectUrl(
+    cancelUrl,
+    req.url,
+    `/client/invoices`
+  );
+
+  // 5. Create Payment Gateway Session
   const gateway = getPaymentGateway();
-  const defaultSuccessUrl = `${req.headers.get('origin') || 'http://localhost:3000'}/demo/checkout?order_id=${order.id}&invoice_id=${invoice.id}`;
-  const defaultCancelUrl = `${req.headers.get('origin') || 'http://localhost:3000'}/demo/storefront-preview/cart`;
+  try {
+    const session = await gateway.createCheckoutSession({
+      tenantId: tenant.id,
+      orderId: order.id,
+      invoiceId: invoice.id,
+      amount: Number(order.amount),
+      currency: tenant.currency || 'USD',
+      customerEmail: customer.email,
+      customerName: customer.name,
+      successUrl: safeSuccessUrl,
+      cancelUrl: safeCancelUrl,
+      description: `Order ${order.orderNumber} - ${tenant.name}`,
+    });
 
-  const session = await gateway.createCheckoutSession({
-    tenantId: tenant.id,
-    orderId: order.id,
-    invoiceId: invoice.id,
-    amount: Number(order.amount),
-    currency: tenant.currency || 'USD',
-    customerEmail: customer.email,
-    customerName: customer.name,
-    successUrl: successUrl || defaultSuccessUrl,
-    cancelUrl: cancelUrl || defaultCancelUrl,
-    description: `Order ${order.orderNumber} - ${tenant.name}`,
-  });
-
-  return NextResponse.json({
-    success: true,
-    orderNumber: order.orderNumber,
-    orderId: order.id,
-    invoiceNumber: invoice.invoiceNumber,
-    invoiceId: invoice.id,
-    amount: Number(order.amount),
-    currency: invoice.currency,
-    checkoutUrl: session.checkoutUrl,
-    gatewayProvider: session.provider,
-  }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceId: invoice.id,
+      amount: Number(order.amount),
+      currency: invoice.currency,
+      checkoutUrl: session.checkoutUrl,
+      gatewayProvider: session.provider,
+    }, { status: 201 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Payment session failed';
+    return NextResponse.json({
+      success: true,
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceId: invoice.id,
+      amount: Number(order.amount),
+      currency: invoice.currency,
+      checkoutUrl: null,
+      paymentError: msg,
+    }, { status: 201 });
+  }
 }

@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from './types.ts';
 export const SESSION_COOKIE_NAME = 'runstead_session';
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
-// In-memory fallback session store for offline unit tests or when DB is unavailable
+// In-memory fallback session store strictly for isolated unit test runs
 interface CachedSession {
   userId: string;
   tokenHash: string;
@@ -39,14 +39,19 @@ export async function createSession(
     });
     sessionId = session.id;
   } catch (err) {
-    // If database is not reachable (e.g. offline dev/testing), store in memory
-    if (metadata?.userObj) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Database connection failed during session creation.');
+    }
+    // If running in test mode without database, store in memory
+    if (metadata?.userObj && process.env.NODE_ENV === 'test') {
       memorySessions.set(tokenHash, {
         userId,
         tokenHash,
         expiresAt,
         user: metadata.userObj,
       });
+    } else {
+      throw err;
     }
   }
 
@@ -62,7 +67,7 @@ export async function validateSessionToken(rawToken: string): Promise<Authentica
   const tokenHash = hashToken(rawToken);
   const now = new Date();
 
-  // 1. Try database lookup
+  // 1. Database session lookup
   try {
     const session = await prisma.session.findUnique({
       where: { token: tokenHash },
@@ -78,14 +83,18 @@ export async function validateSessionToken(rawToken: string): Promise<Authentica
         emailVerified: session.user.emailVerified,
       };
     }
-  } catch {
-    // Fall back to memory sessions if DB is offline
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      return null;
+    }
   }
 
-  // 2. Check memory store
-  const cached = memorySessions.get(tokenHash);
-  if (cached && cached.expiresAt > now) {
-    return cached.user;
+  // 2. Check test-only memory store if running in unit test mode
+  if (process.env.NODE_ENV === 'test') {
+    const cached = memorySessions.get(tokenHash);
+    if (cached && cached.expiresAt > now) {
+      return cached.user;
+    }
   }
 
   return null;
@@ -123,7 +132,7 @@ export function extractTokenFromRequest(req: Request): string | null {
   const cookieHeader = req.headers.get('cookie');
   if (!cookieHeader) return null;
 
-  const cookies = cookieHeader.split(';').map(c => c.trim());
+  const cookies = cookieHeader.split(';').map((c) => c.trim());
   for (const cookie of cookies) {
     const [name, value] = cookie.split('=');
     if (name === SESSION_COOKIE_NAME && value) {

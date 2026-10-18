@@ -45,9 +45,8 @@ export async function POST(req: Request) {
     existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
-  } catch {
-    const { findLocalUserByEmail } = await import('@/lib/db/local-db');
-    existingUser = findLocalUserByEmail(normalizedEmail);
+  } catch (err: unknown) {
+    return NextResponse.json({ error: 'Registration service temporarily unavailable' }, { status: 503 });
   }
 
   if (existingUser) {
@@ -73,31 +72,9 @@ export async function POST(req: Request) {
         slug: tenantSlug,
       });
     }
-  } catch {
-    const { createLocalUser, createLocalTenant, createLocalTenantMembership } = await import('@/lib/db/local-db');
-    const newUserId = `u_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    user = createLocalUser({
-      id: newUserId,
-      email: normalizedEmail,
-      name,
-      passwordHash,
-      role: 'owner',
-    });
-
-    if (businessName && tenantSlug) {
-      const newTenantId = `t_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      tenant = createLocalTenant({
-        id: newTenantId,
-        name: businessName,
-        slug: tenantSlug,
-      });
-      createLocalTenantMembership({
-        id: `tm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        tenantId: newTenantId,
-        userId: newUserId,
-        role: 'owner',
-      });
-    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Database error';
+    return NextResponse.json({ error: `Registration failed: ${msg}` }, { status: 500 });
   }
 
   // Issue session
@@ -109,7 +86,7 @@ export async function POST(req: Request) {
       email: user.email,
       name: user.name,
       isPlatformAdmin: Boolean(user.isPlatformAdmin),
-      emailVerified: new Date(),
+      emailVerified: null,
     },
   });
 

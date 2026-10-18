@@ -3,9 +3,11 @@ import { prisma, withTenantContext } from './client.ts';
 
 export const SEED_TENANT_A_ID = '11111111-1111-1111-1111-111111111111';
 export const SEED_TENANT_B_ID = '22222222-2222-2222-2222-222222222222';
+export const SEED_DEFAULT_TENANT_ID = 'e0000000-0000-0000-0000-000000000001';
 
 export const SEED_USER_A_ID = 'a1111111-1111-1111-1111-111111111111';
 export const SEED_USER_B_ID = 'b2222222-2222-2222-2222-222222222222';
+export const SEED_ADMIN_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 export const SEED_CUSTOMER_A1_ID = 'c1111111-1111-1111-1111-111111111111';
 export const SEED_CUSTOMER_A2_ID = 'c1111111-1111-1111-1111-111111111112';
@@ -14,6 +16,7 @@ export const SEED_CUSTOMER_B2_ID = 'c2222222-2222-2222-2222-222222222222';
 
 export const SEED_PRODUCT_A1_ID = 'd1111111-1111-1111-1111-111111111111';
 export const SEED_PRODUCT_B1_ID = 'd2222222-2222-2222-2222-222222222221';
+export const SEED_DEFAULT_PRODUCT_ID = 'd0000000-0000-0000-0000-000000000001';
 
 export const SEED_ORDER_A1_ID = 'e1111111-1111-1111-1111-111111111111';
 export const SEED_ORDER_B1_ID = 'e2222222-2222-2222-2222-222222222221';
@@ -68,6 +71,86 @@ export async function seedDatabase(prismaClient?: PrismaClient) {
       isPlatformAdmin: false,
     },
   });
+
+  const userAdmin = await db.user.upsert({
+    where: { id: SEED_ADMIN_USER_ID },
+    update: { email: 'admin@runstead.com', name: 'Platform Administrator', isPlatformAdmin: true },
+    create: {
+      id: SEED_ADMIN_USER_ID,
+      email: 'admin@runstead.com',
+      name: 'Platform Administrator',
+      isPlatformAdmin: true,
+      passwordHash: 'scrypt$N=16384,r=8,p=1$7c5be188d363b9070f7eb8065a2ca2d7$3934d4fe80f5339d37feee2fa4ea487a544b620ea7efefea53d71109a150bc2c423ba98eec2e6c507cba14d33a6e9a66d6fe36136e053f3a8b417f7b889504a3',
+      emailVerified: new Date(),
+    },
+  });
+
+  // Seed Default Platform Tenant
+  await withTenantContext(SEED_DEFAULT_TENANT_ID, async (tx) => {
+    const tenantDefault = await tx.tenant.upsert({
+      where: { id: SEED_DEFAULT_TENANT_ID },
+      update: {
+        name: 'Tonmoy Hosting Platform',
+        slug: 'default',
+        planTier: 'Enterprise',
+        currency: 'USD',
+        taxRate: 5.0,
+      },
+      create: {
+        id: SEED_DEFAULT_TENANT_ID,
+        name: 'Tonmoy Hosting Platform',
+        slug: 'default',
+        planTier: 'Enterprise',
+        currency: 'USD',
+        taxRate: 5.0,
+        brandConfig: {
+          primaryColor: '#2563eb',
+          secondaryColor: '#4f46e5',
+        },
+      },
+    });
+
+    await tx.tenantMembership.upsert({
+      where: { tenantId_userId: { tenantId: tenantDefault.id, userId: userAdmin.id } },
+      update: { role: 'owner' },
+      create: {
+        tenantId: tenantDefault.id,
+        userId: userAdmin.id,
+        role: 'owner',
+      },
+    });
+
+    const defaultProduct = await tx.product.upsert({
+      where: { tenantId_id: { tenantId: tenantDefault.id, id: SEED_DEFAULT_PRODUCT_ID } },
+      update: { name: 'Starter Cloud Hosting', available: true },
+      create: {
+        id: SEED_DEFAULT_PRODUCT_ID,
+        tenantId: tenantDefault.id,
+        name: 'Starter Cloud Hosting',
+        type: 'shared_hosting',
+        description: 'Standard fast cloud web hosting with cPanel/WHM management.',
+        setupFee: 0.0,
+        available: true,
+      },
+    });
+
+    await tx.productPricing.upsert({
+      where: {
+        tenantId_id: {
+          tenantId: tenantDefault.id,
+          id: 'd0000000-0000-0000-0000-000000000002',
+        },
+      },
+      update: { price: 9.99 },
+      create: {
+        id: 'd0000000-0000-0000-0000-000000000002',
+        tenantId: tenantDefault.id,
+        productId: defaultProduct.id,
+        cycle: 'monthly',
+        price: 9.99,
+      },
+    });
+  }, db);
 
   // 2. Seed Tenant A fixtures within Tenant A's transaction-scoped RLS context
   await withTenantContext(SEED_TENANT_A_ID, async (tx) => {
