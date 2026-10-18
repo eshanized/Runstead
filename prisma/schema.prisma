@@ -526,3 +526,14 @@ model AuditEvent {
   @@index([tenantId, createdAt])
   @@map("audit_events")
 }
+
+/// Shared production rate-limit buckets used atomically across application instances.
+model RateLimitBucket {
+  key          String   @id @db.VarChar(255)
+  count        Int      @default(0)
+  windowEndsAt DateTime @map("window_ends_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([windowEndsAt])
+  @@map("rate_limit_buckets")
+}
