@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { recordAuditEvent } from './audit.service.ts';
 import type { Invoice, Payment, Prisma } from '@prisma/client';
 
@@ -12,7 +12,7 @@ export interface SettleInvoicePaymentInput {
 }
 
 export async function getInvoiceById(tenantId: string, invoiceId: string) {
-  const inv = await prisma.invoice.findUnique({
+  const inv = await withTenantContext(tenantId, (tx) => tx.invoice.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -25,7 +25,7 @@ export async function getInvoiceById(tenantId: string, invoiceId: string) {
       items: true,
       payments: true,
     },
-  });
+  }));
 
   if (!inv) return null;
   return Object.assign(inv, {
@@ -49,8 +49,8 @@ export async function listInvoices(
     status: options.status,
   };
 
-  const [invoices, total] = await Promise.all([
-    prisma.invoice.findMany({
+  const [invoices, total] = await withTenantContext(tenantId, async (tx) => Promise.all([
+    tx.invoice.findMany({
       where,
       skip,
       take: limit,
@@ -59,7 +59,7 @@ export async function listInvoices(
         customer: { select: { name: true, email: true } },
       },
     }),
-    prisma.invoice.count({ where }),
+    tx.invoice.count({ where }),
   ]);
 
   return {
@@ -93,7 +93,7 @@ export async function settleInvoice(
   // Idempotency is checked before and again under the invoice row lock.
   // Reusing an event key for another invoice or different payment data is an error.
   if (paymentInput.idempotencyKey) {
-    const existingPayment = await prisma.payment.findFirst({
+    const existingPayment = await withTenantContext(tenantId, (tx) => tx.payment.findFirst({
       where: {
         tenantId,
         idempotencyKey: paymentInput.idempotencyKey,
@@ -127,7 +127,7 @@ export async function settleInvoice(
   }
 
   // 2. Fetch target invoice in authorized tenant
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await withTenantContext(tenantId, (tx) => tx.invoice.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -141,10 +141,10 @@ export async function settleInvoice(
   }
 
   if (invoice.status === 'paid') {
-    const payment = await prisma.payment.findFirst({
+    const payment = await withTenantContext(tenantId, (tx) => tx.payment.findFirst({
       where: { tenantId, invoiceId },
       orderBy: { createdAt: 'desc' },
-    });
+    }));
     return {
       invoice: Object.assign(invoice, { total: Number(invoice.totalAmount) }),
       payment: payment!,
@@ -177,7 +177,7 @@ export async function settleInvoice(
 
   // 4. Serialize settlement for this invoice using a row lock. The unique idempotency
   // constraint on payments is the second line of defense for duplicate provider events.
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTenantContext(tenantId, async (tx) => {
     const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
       FROM "invoices"
