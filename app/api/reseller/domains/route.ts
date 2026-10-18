@@ -13,7 +13,10 @@ const domainCreateSchema = z.object({
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   try {
     await requireResellerStaff(tenantId, ['owner', 'admin', 'billing', 'support'], req);
@@ -51,7 +54,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let user;
   try {
@@ -76,7 +82,8 @@ export async function POST(req: Request) {
 
   const { domain, customerId, autoRenew, nameservers } = parsed.data;
   const normalizedDomain = domain.toLowerCase().trim();
-  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+  // No registrar driver is configured: this endpoint records a request only.
+
 
   // Verify customer belongs to tenant
   const customer = await prisma.customer.findUnique({
@@ -91,11 +98,13 @@ export async function POST(req: Request) {
       tenantId,
       customerId,
       domainName: normalizedDomain,
-      status: 'active',
-      autoRenew,
-      nameservers,
-      registeredDate: new Date(),
-      expiryDate: expiresAt,
+      status: 'pending_registration',
+      registrar: 'unconfigured',
+      autoRenew: false,
+      nameservers: [],
+      registeredDate: null,
+      expiryDate: null,
+      domainType: 'registration_request',
     },
     include: {
       customer: { select: { id: true, name: true, email: true } },
@@ -123,6 +132,9 @@ export async function POST(req: Request) {
         nameservers: created.nameservers,
         expiresAt: created.expiryDate,
         customer: created.customer,
+        requestedConfiguration: { autoRenew, nameservers },
+        providerConfigured: false,
+        message: 'Domain request recorded but not registered. No registrar, renewal, nameserver, or external DNS operation was performed.',
       },
     },
     { status: 201 }
