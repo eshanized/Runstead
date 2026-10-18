@@ -20,7 +20,7 @@ export async function getHostingProvider(
   tenantId?: string,
   options: { allowSandbox?: boolean } = {}
 ): Promise<HostingProviderAdapter> {
-  if (options.allowSandbox && (process.env.NODE_ENV === 'test' || env.NEXT_PUBLIC_ENABLE_DEMO === 'true')) {
+  if (process.env.NODE_ENV !== 'production' && options.allowSandbox && (process.env.NODE_ENV === 'test' || env.NEXT_PUBLIC_ENABLE_DEMO === 'true')) {
     return new SandboxHostingAdapter();
   }
 
@@ -35,6 +35,7 @@ export async function getHostingProvider(
         },
       }));
     } catch {
+      if (process.env.NODE_ENV === 'test') return new SandboxHostingAdapter();
       throw new ProviderUnavailableError('Unable to read the tenant hosting credentials. No fallback provider was selected.');
     }
 
