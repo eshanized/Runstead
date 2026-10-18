@@ -28,6 +28,7 @@ const baseEnvSchema = z.object({
   CPANEL_WHM_HOST: z.string().optional(),
   CPANEL_WHM_USER: z.string().optional(),
   CPANEL_WHM_API_TOKEN: z.string().optional(),
+  CPANEL_WHM_ALLOW_SHARED_PROVIDER: z.enum(['true', 'false']).default('false'),
 
   // Email / Transactional Notifications
   EMAIL_FROM: z.string().email().default('notifications@runstead.org'),
