@@ -19,32 +19,70 @@ export interface PlatformContextValue {
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
 
+const isProductionBuild = process.env.NODE_ENV === 'production';
+
+function createEmptyPlatformState(): PlatformState {
+  return {
+    ...platformSeedDefaults,
+    customers: [],
+    products: [],
+    orders: [],
+    services: [],
+    domains: [],
+    dnsZones: [],
+    invoices: [],
+    tickets: [],
+    integrations: [],
+    notifications: [],
+    cart: [],
+    activeClientCustomerId: null,
+    platformOperator: {
+      ...platformSeedDefaults.platformOperator,
+      tenants: [],
+      events: [],
+      integrations: [],
+    },
+  };
+}
+
 export function PlatformProvider({ children }: { children: React.ReactNode }) {
-  const [state, setStateInternal] = useState<PlatformState>(platformSeedDefaults);
-  const [activeTenantId, setActiveTenantId] = useState('default');
+  const [state, setStateInternal] = useState<PlatformState>(() =>
+    isProductionBuild ? createEmptyPlatformState() : platformSeedDefaults
+  );
+  const [activeTenantId, setActiveTenantId] = useState(isProductionBuild ? '' : 'default');
   const [isHydrated, setIsHydrated] = useState(false);
   const isFirstRender = useRef(true);
 
-  // Authoritative server synchronization with PostgreSQL
+  // Production state is sourced only from the authenticated server; seeded data is demo-only.
   const syncServerState = useCallback(async () => {
     try {
       let resolvedTenant = activeTenantId;
-      try {
-        const meRes = await fetch('/api/auth/me');
-        if (meRes.ok) {
-          const meData = await meRes.json();
-          if (meData?.tenants?.[0]?.tenantId) {
-            resolvedTenant = meData.tenants[0].tenantId;
-            setActiveTenantId(resolvedTenant);
-          }
+      if (isProductionBuild || !resolvedTenant) {
+        const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (!meRes.ok) {
+          if (isProductionBuild) setStateInternal(createEmptyPlatformState());
+          return;
         }
-      } catch {
-        // Guest or offline
+        const meData = await meRes.json();
+        resolvedTenant = meData?.tenants?.[0]?.tenantId || '';
+        if (!resolvedTenant) {
+          if (isProductionBuild) setStateInternal(createEmptyPlatformState());
+          return;
+        }
+        setActiveTenantId(resolvedTenant);
       }
 
-      const res = await fetch(`/api/reseller/sync?tenantId=${encodeURIComponent(resolvedTenant)}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/reseller/sync?tenantId=${encodeURIComponent(resolvedTenant)}`, { cache: 'no-store' });
+      if (!res.ok) {
+        if (isProductionBuild) setStateInternal(createEmptyPlatformState());
+        return;
+      }
+
       const d = await res.json();
+      const requiredCollections = ['customers', 'products', 'orders', 'invoices', 'services', 'tickets', 'domains'];
+      if (!d || requiredCollections.some((key) => !Array.isArray(d[key]))) {
+        throw new Error('Server synchronization response is incomplete.');
+      }
 
       setStateInternal((p) => {
         const next: PlatformState = { ...p };
@@ -75,12 +113,12 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             name: pr.name,
             type: pr.type,
             description: pr.description || '',
-            pricing: Array.isArray(pr.pricing) ? pr.pricing : [{ cycle: 'monthly', price: Number(pr.pricing?.monthly || 19.99) }],
+            pricing: Array.isArray(pr.pricing) ? pr.pricing : [],
             setupFee: Number(pr.setupFee || 0),
             resourceLimits: pr.resourceLimits ? (Array.isArray(pr.resourceLimits) ? pr.resourceLimits : Object.entries(pr.resourceLimits).map(([label, value]) => ({ label, value: String(value) }))) : [],
             available: pr.available ?? true,
             addons: pr.addons || [],
-            capabilities: pr.capabilities || ['file_manager', 'databases', 'domain_management', 'dns_zone', 'ssl_certificates', 'backups'],
+            capabilities: Array.isArray(pr.capabilities) ? pr.capabilities : [],
             planLimits: pr.planLimits || {},
           }));
         }
@@ -91,8 +129,8 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             orderNumber: o.orderNumber,
             customerId: o.customerId,
             customerName: o.customer?.name || 'Customer',
-            productId: o.productId || 'prod_001',
-            productName: o.product?.name || o.productName || 'Standard Hosting Plan',
+            productId: o.productId || '',
+            productName: o.product?.name || o.productName || 'Unknown product',
             status: o.status,
             amount: Number(o.amount),
             billingCycle: o.billingCycle || 'monthly',
@@ -134,13 +172,13 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             package: s.package,
             domain: s.domain || null,
             createdAt: s.createdAt,
-            nextRenewalDate: s.nextRenewalDate || new Date().toISOString(),
+            nextRenewalDate: s.nextRenewalDate || '',
             billingCycle: s.billingCycle || 'monthly',
             price: Number(s.price),
-            ipAddress: s.ipAddress || '198.51.100.45',
-            serverHostname: s.serverHostname || 'srv1.runstead.net',
-            username: s.username || 'client',
-            capabilities: ['file_manager', 'databases', 'domain_management', 'dns_zone', 'ssl_certificates', 'backups'],
+            ipAddress: s.ipAddress || '',
+            serverHostname: s.serverHostname || '',
+            username: s.username || '',
+            capabilities: Array.isArray(s.capabilities) ? s.capabilities : [],
             resourceUsage: Array.isArray(s.resourceUsage) ? s.resourceUsage : [],
             fileSystem: { files: [] },
             databases: [],
@@ -148,7 +186,6 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             emailAccounts: [],
             emailForwarders: [],
             emailLogs: [],
-            sslCertificate: { status: 'active', issuer: "Let's Encrypt", autoRenew: true, forceHttps: true },
             backups: [],
             logs: [],
             timeline: [],
@@ -184,12 +221,12 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             domain: dom.domain,
             customerId: dom.customerId,
             customerName: dom.customerName || (next.customers.find((c) => c.id === dom.customerId)?.name) || 'Customer',
-            registrar: dom.registrar || 'Runstead Registrar',
+            registrar: dom.registrar || 'Unconfigured',
             status: dom.status,
-            registeredDate: dom.registeredDate,
-            expiryDate: dom.expiryDate,
+            registeredDate: dom.registeredDate || '',
+            expiryDate: dom.expiryDate || '',
             autoRenew: Boolean(dom.autoRenew),
-            nameservers: dom.nameservers || ['ns1.runstead.net', 'ns2.runstead.net'],
+            nameservers: Array.isArray(dom.nameservers) ? dom.nameservers : [],
             dnsZoneId: dom.dnsZoneId || null,
           }));
         }
@@ -207,7 +244,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     } catch {
-      // Offline fallback
+      if (isProductionBuild) setStateInternal(createEmptyPlatformState());
     } finally {
       setIsHydrated(true);
     }
@@ -320,7 +357,7 @@ export function usePlatformStore(): PlatformContextValue {
   const ctx = useContext(PlatformContext);
   if (!ctx) {
     return {
-      state: platformSeedDefaults,
+      state: isProductionBuild ? createEmptyPlatformState() : platformSeedDefaults,
       setState: () => {},
       isHydrated: false,
       syncFromServer: async () => {},
