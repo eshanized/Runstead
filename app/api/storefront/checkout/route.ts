@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { adminPrisma, withTenantContext } from '@/lib/db/client';
 import { getAuthenticatedUser } from '@/lib/auth/guards';
 import { createOrder } from '@/lib/services/order.service';
 import { getPaymentGateway } from '@/lib/providers/payment/factory';
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   // 1. Resolve Tenant from PostgreSQL
   let tenant: { id: string; name: string; currency: string } | null = null;
   try {
-    tenant = await prisma.tenant.findUnique({
+    tenant = await adminPrisma.tenant.findUnique({
       where: { slug: tenantSlug.toLowerCase() },
       select: { id: true, name: true, currency: true },
     });
@@ -69,40 +69,44 @@ export async function POST(req: Request) {
   // 2. Identify or Create Customer securely (prevent account hijacking)
   const authUser = await getAuthenticatedUser(req);
   const normalizedEmail = customerInput.email.toLowerCase().trim();
+  const canLinkAuthenticatedUser = Boolean(
+    authUser?.emailVerified &&
+    authUser.email.toLowerCase().trim() === normalizedEmail
+  );
 
   let customer: { id: string; name: string; email: string; userId?: string | null } | null = null;
   try {
-    const existingCustomer = await prisma.customer.findFirst({
+    const existingCustomer = await withTenantContext(tenant.id, (tx) => tx.customer.findFirst({
       where: {
         tenantId: tenant.id,
         email: normalizedEmail,
       },
-    });
+    }));
 
-    if (existingCustomer) {
-      if (existingCustomer.userId) {
-        // Customer profile belongs to an existing authenticated user
-        if (!authUser || authUser.id !== existingCustomer.userId) {
-          return NextResponse.json(
-            { error: 'An account with this email address already exists. Please sign in to proceed with checkout.' },
-            { status: 403 }
-          );
-        }
-        customer = existingCustomer;
-      } else {
-        // Unlinked profile: link to authenticated user if signed in
-        if (authUser) {
-          customer = await prisma.customer.update({
-            where: { tenantId_id: { tenantId: tenant.id, id: existingCustomer.id } },
-            data: { userId: authUser.id },
-            select: { id: true, name: true, email: true, userId: true },
-          });
-        } else {
-          customer = existingCustomer;
-        }
+    if (existingCustomer?.userId) {
+      // Existing customer identities can only use their own verified account.
+      if (!canLinkAuthenticatedUser || authUser?.id !== existingCustomer.userId) {
+        return NextResponse.json(
+          { error: 'This email belongs to an existing customer profile. Sign in with the verified account for that email or use a different checkout email.' },
+          { status: 403 }
+        );
       }
+      customer = existingCustomer;
+    } else if (existingCustomer) {
+      // Never claim an unlinked customer profile with an unverified or mismatched email.
+      if (!canLinkAuthenticatedUser || !authUser) {
+        return NextResponse.json(
+          { error: 'This email already has a customer profile. Sign in with a verified account for that email before using this profile.' },
+          { status: 403 }
+        );
+      }
+      customer = await withTenantContext(tenant.id, (tx) => tx.customer.update({
+        where: { tenantId_id: { tenantId: tenant.id, id: existingCustomer.id } },
+        data: { userId: authUser.id },
+        select: { id: true, name: true, email: true, userId: true },
+      }));
     } else {
-      customer = await prisma.customer.create({
+      customer = await withTenantContext(tenant.id, (tx) => tx.customer.create({
         data: {
           tenantId: tenant.id,
           name: customerInput.name,
@@ -110,10 +114,10 @@ export async function POST(req: Request) {
           company: customerInput.company,
           country: customerInput.country || 'US',
           phone: customerInput.phone,
-          userId: authUser ? authUser.id : undefined,
+          userId: canLinkAuthenticatedUser ? authUser!.id : undefined,
         },
         select: { id: true, name: true, email: true, userId: true },
-      });
+      }));
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Database error';
@@ -176,7 +180,7 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Payment session failed';
     return NextResponse.json({
-      success: true,
+      success: false,
       orderNumber: order.orderNumber,
       orderId: order.id,
       invoiceNumber: invoice.invoiceNumber,
@@ -184,7 +188,7 @@ export async function POST(req: Request) {
       amount: Number(order.amount),
       currency: invoice.currency,
       checkoutUrl: null,
-      paymentError: msg,
-    }, { status: 201 });
+      paymentError: 'Checkout session could not be created. No payment was taken; retry or contact billing support.',
+    }, { status: 503 });
   }
 }
