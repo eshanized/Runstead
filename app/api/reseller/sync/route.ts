@@ -10,7 +10,10 @@ import { listTickets } from '@/lib/services/ticket.service';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   try {
     await requireResellerStaff(tenantId, ['owner', 'admin', 'billing', 'support'], req);
@@ -73,10 +76,10 @@ export async function GET(req: Request) {
       domainName: d.domainName,
       customerId: d.customerId,
       status: d.status,
-      registeredDate: d.registeredDate,
-      expiryDate: d.expiryDate || new Date().toISOString(),
+      registeredDate: d.registeredDate || '',
+      expiryDate: d.expiryDate || '',
       autoRenew: Boolean(d.autoRenew),
-      nameservers: d.nameservers || ['ns1.runstead.net', 'ns2.runstead.net'],
+      nameservers: Array.isArray(d.nameservers) ? d.nameservers : [],
     })),
     dnsRecords: dnsRecords.map((r) => ({
       id: r.id,
