@@ -35,7 +35,7 @@ const baseEnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
 
   // Demo & Simulation controls
-  NEXT_PUBLIC_ENABLE_DEMO: z.string().default('true'),
+  NEXT_PUBLIC_ENABLE_DEMO: z.string().default(process.env.NODE_ENV === 'production' ? 'false' : 'true'),
   ALLOW_DEMO_MUTATIONS_ON_DB: z.string().default('false'),
   ALLOW_TEST_AUTH_OVERRIDE: z.string().optional(),
 });
