@@ -81,67 +81,72 @@ export class StripeGateway implements PaymentGateway {
 
     const payloadString = typeof rawPayload === 'string' ? rawPayload : rawPayload.toString('utf8');
 
-    // Parse header: t=1614000000,v1=abc...,v0=...
-    const signatureParts = signatureHeader.split(',').reduce<Record<string, string>>((acc, item) => {
-      const [k, v] = item.trim().split('=');
-      if (k && v) acc[k] = v;
-      return acc;
-    }, {});
+    // Stripe can include multiple v1 signatures during secret rotation; accept any valid v1.
+    const parts = signatureHeader.split(',').map((part) => part.trim().split('=', 2));
+    const timestamp = parts.find(([key]) => key === 't')?.[1];
+    const signatures = parts.filter(([key, value]) => key === 'v1' && Boolean(value)).map(([, value]) => value!);
 
-    const timestamp = signatureParts.t;
-    const expectedSignature = signatureParts.v1;
-
-    if (!timestamp || !expectedSignature) {
-      return {
-        valid: false,
-        error: 'Malformed Stripe-Signature header: missing timestamp or v1 signature.',
-      };
+    if (!timestamp || signatures.length === 0 || !/^\d+$/.test(timestamp)) {
+      return { valid: false, error: 'Malformed Stripe-Signature header.' };
     }
 
-    // 5-minute replay attack tolerance window (300 seconds)
-    const timestampNumber = parseInt(timestamp, 10);
+    const timestampNumber = Number(timestamp);
     const nowSeconds = Math.floor(Date.now() / 1000);
-    if (Math.abs(nowSeconds - timestampNumber) > 300) {
-      return {
-        valid: false,
-        error: 'Stripe webhook signature expired: timestamp exceeds 300s replay window.',
-      };
+    if (!Number.isSafeInteger(timestampNumber) || Math.abs(nowSeconds - timestampNumber) > 300) {
+      return { valid: false, error: 'Stripe webhook timestamp is outside the five-minute tolerance window.' };
     }
 
-    // Compute expected HMAC-SHA256
     const signedPayload = `${timestamp}.${payloadString}`;
-    const hmac = crypto.createHmac('sha256', this.webhookSecret);
-    const computedSignature = hmac.update(signedPayload).digest('hex');
-
-    const computedBuffer = Buffer.from(computedSignature, 'hex');
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-
-    if (computedBuffer.length !== expectedBuffer.length) {
-      return { valid: false, error: 'Signature length mismatch' };
-    }
-
-    const isMatch = crypto.timingSafeEqual(computedBuffer, expectedBuffer);
-    if (!isMatch) {
-      return { valid: false, error: 'Cryptographic signature verification failed' };
+    const computed = crypto.createHmac('sha256', this.webhookSecret).update(signedPayload).digest();
+    const signatureValid = signatures.some((signature) => {
+      if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
+      const candidate = Buffer.from(signature, 'hex');
+      return candidate.length === computed.length && crypto.timingSafeEqual(computed, candidate);
+    });
+    if (!signatureValid) {
+      return { valid: false, error: 'Cryptographic Stripe signature verification failed.' };
     }
 
     try {
-      const event = JSON.parse(payloadString);
-      const session = event.data?.object;
+      const event = JSON.parse(payloadString) as {
+        id?: unknown;
+        type?: unknown;
+        data?: { object?: Record<string, unknown> };
+      };
+      const object = event.data?.object;
+      if (
+        typeof event.id !== 'string' ||
+        !event.id ||
+        typeof event.type !== 'string' ||
+        !event.type ||
+        !object ||
+        typeof object !== 'object'
+      ) {
+        return { valid: false, error: 'Signed Stripe event is missing required event fields.' };
+      }
+
+      const metadata = object.metadata && typeof object.metadata === 'object'
+        ? object.metadata as Record<string, unknown>
+        : {};
+      const amountTotal = typeof object.amount_total === 'number' ? object.amount_total : undefined;
+      const currency = typeof object.currency === 'string' ? object.currency.toUpperCase() : undefined;
+      const paymentIntent = typeof object.payment_intent === 'string' ? object.payment_intent : undefined;
+      const objectId = typeof object.id === 'string' ? object.id : undefined;
 
       return {
         valid: true,
         eventId: event.id,
         eventType: event.type,
-        tenantId: session?.metadata?.tenantId,
-        orderId: session?.metadata?.orderId,
-        invoiceId: session?.metadata?.invoiceId,
-        amount: session?.amount_total ? session.amount_total / 100 : undefined,
-        currency: session?.currency?.toUpperCase(),
-        providerTransactionId: session?.payment_intent || session?.id,
+        tenantId: typeof metadata.tenantId === 'string' ? metadata.tenantId : undefined,
+        orderId: typeof metadata.orderId === 'string' ? metadata.orderId : undefined,
+        invoiceId: typeof metadata.invoiceId === 'string' ? metadata.invoiceId : undefined,
+        amount: amountTotal !== undefined ? amountTotal / 100 : undefined,
+        currency,
+        paymentStatus: typeof object.payment_status === 'string' ? object.payment_status : undefined,
+        providerTransactionId: paymentIntent || objectId,
       };
     } catch {
-      return { valid: false, error: 'Failed to parse webhook JSON payload' };
+      return { valid: false, error: 'Signed Stripe payload is not valid JSON.' };
     }
   }
 
