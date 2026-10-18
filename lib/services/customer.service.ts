@@ -69,7 +69,7 @@ export async function listCustomers(tenantId: string, options: ListCustomersOpti
       },
     }),
     tx.customer.count({ where }),
-  ]);
+  ]));
 
   return {
     customers,
@@ -97,7 +97,7 @@ export async function getCustomerById(tenantId: string, customerId: string) {
       domains: { orderBy: { createdAt: 'desc' } },
       tickets: { orderBy: { createdAt: 'desc' }, take: 10 },
     },
-  }));;
+  }));
 }
 
 export async function createCustomer(tenantId: string, input: CreateCustomerInput, actorId?: string): Promise<Customer> {
@@ -112,7 +112,7 @@ export async function createCustomer(tenantId: string, input: CreateCustomerInpu
       phone: input.phone,
       userId: input.userId,
     },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -142,7 +142,7 @@ export async function updateCustomer(
       ...input,
       email: input.email ? input.email.toLowerCase().trim() : undefined,
     },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -168,5 +168,5 @@ export async function linkCustomerUser(tenantId: string, customerId: string, use
       },
     },
     data: { userId },
-  }));;
+  }));
 }
