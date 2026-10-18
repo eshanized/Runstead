@@ -21,7 +21,7 @@ export function getPaymentGateway(
   const preferred = typeof options === 'string' ? options : (options.preferredProvider || 'stripe');
   const allowSandbox = typeof options === 'string' ? false : Boolean(options.allowSandbox);
 
-  if (allowSandbox && (process.env.NODE_ENV === 'test' || env.NEXT_PUBLIC_ENABLE_DEMO === 'true')) {
+  if (process.env.NODE_ENV !== 'production' && allowSandbox && (process.env.NODE_ENV === 'test' || env.NEXT_PUBLIC_ENABLE_DEMO === 'true')) {
     return new SandboxPaymentGateway();
   }
 
