@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/client';
 import { getAuthenticatedUser } from '@/lib/auth/guards';
 import { createOrder } from '@/lib/services/order.service';
 import { getPaymentGateway } from '@/lib/providers/payment/factory';
-import { checkRateLimit } from '@/lib/security/rate-limit';
+import { checkRateLimitAsync, getRateLimitClientAddress } from '@/lib/security/rate-limit';
 import { env } from '@/lib/config/env';
 
 const checkoutSchema = z.object({
@@ -30,8 +30,8 @@ const checkoutSchema = z.object({
 import { sanitizeRedirectUrl } from '@/lib/security/redirect';
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-  const rateLimit = checkRateLimit(`checkout:${ip}`, { windowMs: 60_000, maxRequests: 10 });
+  const ip = getRateLimitClientAddress(req);
+  const rateLimit = await checkRateLimitAsync(`checkout:${ip}`, { windowMs: 60_000, maxRequests: 10 });
 
   if (!rateLimit.success) {
     return NextResponse.json({ error: 'Too many checkout requests. Please wait a moment.' }, { status: 429 });
