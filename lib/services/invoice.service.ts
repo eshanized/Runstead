@@ -90,7 +90,8 @@ export async function settleInvoice(
   paymentInput: SettleInvoicePaymentInput,
   actorId?: string
 ): Promise<{ invoice: Invoice & { total?: number }; payment: Payment; alreadySettled: boolean }> {
-  // 1. Idempotency Check: prevent duplicate charges
+  // Idempotency is checked before and again under the invoice row lock.
+  // Reusing an event key for another invoice or different payment data is an error.
   if (paymentInput.idempotencyKey) {
     const existingPayment = await prisma.payment.findFirst({
       where: {
@@ -101,6 +102,22 @@ export async function settleInvoice(
     });
 
     if (existingPayment) {
+      const amountMatches = Math.abs(Number(existingPayment.amount) - Number(paymentInput.amount)) <= 0.009;
+      const currencyMatches = existingPayment.currency.toUpperCase() ===
+        (paymentInput.currency || existingPayment.currency).trim().toUpperCase();
+      const transactionMatches = !paymentInput.providerTransactionId ||
+        !existingPayment.providerTransactionId ||
+        existingPayment.providerTransactionId === paymentInput.providerTransactionId;
+
+      if (
+        existingPayment.invoiceId !== invoiceId ||
+        !amountMatches ||
+        !currencyMatches ||
+        !transactionMatches
+      ) {
+        throw new Error('Idempotency key was already used for a different invoice or payment payload.');
+      }
+
       return {
         invoice: Object.assign(existingPayment.invoice, { total: Number(existingPayment.invoice.totalAmount) }),
         payment: existingPayment,
@@ -151,46 +168,104 @@ export async function settleInvoice(
     );
   }
 
-  // 4. Perform atomic settlement transaction in PostgreSQL
+  if (!Number.isFinite(incomingAmount) || incomingAmount <= 0) {
+    throw new Error('Payment amount must be a finite positive number.');
+  }
+  if (paymentInput.method.toLowerCase() === 'stripe' && !paymentInput.providerTransactionId) {
+    throw new Error('A verified Stripe transaction identifier is required for settlement.');
+  }
+
+  // 4. Serialize settlement for this invoice using a row lock. The unique idempotency
+  // constraint on payments is the second line of defense for duplicate provider events.
   const result = await prisma.$transaction(async (tx) => {
-    // Re-verify status under transaction lock to prevent race condition double-settlement
+    const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "invoices"
+      WHERE "tenant_id" = ${tenantId}::uuid
+        AND "id" = ${invoiceId}::uuid
+      FOR UPDATE
+    `;
+
+    if (lockedRows.length === 0) {
+      throw new Error(`Invoice not found: ${invoiceId}`);
+    }
+
     const current = await tx.invoice.findUnique({
       where: { tenantId_id: { tenantId, id: invoiceId } },
     });
-    if (current?.status === 'paid') {
+    if (!current) {
+      throw new Error(`Invoice not found: ${invoiceId}`);
+    }
+
+    // Re-check idempotency after taking the invoice lock to handle concurrent deliveries.
+    if (paymentInput.idempotencyKey) {
+      const existingPay = await tx.payment.findFirst({
+        where: { tenantId, idempotencyKey: paymentInput.idempotencyKey },
+        include: { invoice: true },
+      });
+      if (existingPay) {
+        const amountMatches = Math.abs(Number(existingPay.amount) - incomingAmount) <= 0.009;
+        const currencyMatches = existingPay.currency.toUpperCase() === normalizedCurrency;
+        const transactionMatches = !paymentInput.providerTransactionId ||
+          !existingPay.providerTransactionId ||
+          existingPay.providerTransactionId === paymentInput.providerTransactionId;
+        if (
+          existingPay.invoiceId !== invoiceId ||
+          !amountMatches ||
+          !currencyMatches ||
+          !transactionMatches
+        ) {
+          throw new Error('Idempotency key was already used for a different invoice or payment payload.');
+        }
+        return {
+          invoice: existingPay.invoice,
+          payment: existingPay,
+          alreadySettled: true,
+        };
+      }
+    }
+
+    // Revalidate against the row protected by the lock, not only the earlier read.
+    const lockedTotal = Number(current.totalAmount);
+    if (!Number.isFinite(lockedTotal) || Math.abs(lockedTotal - incomingAmount) > 0.009) {
+      throw new Error(
+        `Payment amount mismatch: Expected ${lockedTotal} ${current.currency}, but received ${incomingAmount}`
+      );
+    }
+    if (normalizedCurrency !== current.currency.toUpperCase()) {
+      throw new Error(
+        `Payment currency mismatch: Expected ${current.currency.toUpperCase()}, but received ${normalizedCurrency}`
+      );
+    }
+
+    if (current.status === 'paid') {
       const existingPay = await tx.payment.findFirst({
         where: { tenantId, invoiceId },
         orderBy: { createdAt: 'desc' },
       });
+      if (!existingPay) {
+        throw new Error('Invoice is marked paid but has no corresponding payment record; manual reconciliation is required.');
+      }
       return {
         invoice: current,
-        payment: existingPay!,
+        payment: existingPay,
         alreadySettled: true,
       };
     }
 
     const now = new Date();
-
     const updatedInvoice = await tx.invoice.update({
-      where: {
-        tenantId_id: {
-          tenantId,
-          id: invoiceId,
-        },
-      },
-      data: {
-        status: 'paid',
-        paidDate: now,
-      },
+      where: { tenantId_id: { tenantId, id: invoiceId } },
+      data: { status: 'paid', paidDate: now },
     });
 
     const createdPayment = await tx.payment.create({
       data: {
         tenantId,
         invoiceId,
-        customerId: invoice.customerId,
+        customerId: current.customerId,
         amount: incomingAmount,
-        currency: invoice.currency,
+        currency: current.currency,
         method: paymentInput.method,
         providerTransactionId: paymentInput.providerTransactionId,
         idempotencyKey: paymentInput.idempotencyKey,
@@ -201,27 +276,13 @@ export async function settleInvoice(
     });
 
     await tx.customer.update({
-      where: {
-        tenantId_id: {
-          tenantId,
-          id: invoice.customerId,
-        },
-      },
-      data: {
-        totalRevenue: {
-          increment: incomingAmount,
-        },
-      },
+      where: { tenantId_id: { tenantId, id: current.customerId } },
+      data: { totalRevenue: { increment: incomingAmount } },
     });
 
-    if (invoice.orderId) {
+    if (current.orderId) {
       await tx.order.update({
-        where: {
-          tenantId_id: {
-            tenantId,
-            id: invoice.orderId,
-          },
-        },
+        where: { tenantId_id: { tenantId, id: current.orderId } },
         data: { status: 'paid' },
       });
 
@@ -234,9 +295,9 @@ export async function settleInvoice(
           maxAttempts: 3,
           payload: {
             tenantId,
-            orderId: invoice.orderId,
-            customerId: invoice.customerId,
-            invoiceId: invoice.id,
+            orderId: current.orderId,
+            customerId: current.customerId,
+            invoiceId: current.id,
           },
         },
       });
