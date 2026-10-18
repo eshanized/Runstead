@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireResellerStaff, AuthorizationError, AuthenticationError } from '@/lib/auth/guards';
-import { getLocalDb, resolveLocalTenantId } from '@/lib/db/local-db';
-import { prisma } from '@/lib/db/client';
+import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
+import { withTenantContext } from '@/lib/db/client';
 import { recordAuditEvent } from '@/lib/services/audit.service';
 
 const updateSettingsSchema = z.object({
@@ -27,28 +26,31 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const db = getLocalDb();
-  const resolvedTenant = resolveLocalTenantId(tenantId);
-  const row = db.prepare('SELECT * FROM tenants WHERE id = ?').get(resolvedTenant) as any;
+  try {
+    const row = await withTenantContext(tenantId, (tx) =>
+      tx.tenant.findUnique({ where: { id: tenantId } })
+    );
+    if (!row) {
+      return NextResponse.json({ error: 'Tenant settings not found' }, { status: 404 });
+    }
 
-  if (!row) {
-    return NextResponse.json({ error: 'Tenant settings not found' }, { status: 404 });
+    return NextResponse.json({
+      settings: {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        planTier: row.planTier,
+        currency: row.currency,
+        taxRate: Number(row.taxRate),
+        brandConfig: row.brandConfig || {},
+        businessSettings: row.businessSettings || {},
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      },
+    });
+  } catch {
+    return NextResponse.json({ error: 'Tenant settings are temporarily unavailable.' }, { status: 503 });
   }
-
-  return NextResponse.json({
-    settings: {
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      planTier: row.plan_tier,
-      currency: row.currency,
-      taxRate: row.tax_rate,
-      brandConfig: row.brand_config ? JSON.parse(row.brand_config) : {},
-      businessSettings: row.business_settings ? JSON.parse(row.business_settings) : {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    },
-  });
 }
 
 export async function PATCH(req: Request) {
@@ -79,46 +81,47 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.format() }, { status: 400 });
   }
 
-  const db = getLocalDb();
-  const resolvedTenant = resolveLocalTenantId(tenantId);
-  const existing = db.prepare('SELECT * FROM tenants WHERE id = ?').get(resolvedTenant) as any;
+  try {
+    const updated = await withTenantContext(tenantId, (tx) =>
+      tx.tenant.update({
+        where: { id: tenantId },
+        data: {
+          name: parsed.data.name,
+          currency: parsed.data.currency,
+          taxRate: parsed.data.taxRate,
+          brandConfig: parsed.data.brandConfig,
+          businessSettings: parsed.data.businessSettings,
+        },
+      })
+    );
 
-  if (!existing) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    await recordAuditEvent(tenantId, {
+      actorId: user.id,
+      action: 'settings.updated',
+      resourceType: 'tenant_settings',
+      resourceId: tenantId,
+      payload: {
+        name: updated.name,
+        currency: updated.currency,
+        taxRate: Number(updated.taxRate),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      settings: {
+        id: updated.id,
+        name: updated.name,
+        slug: updated.slug,
+        planTier: updated.planTier,
+        currency: updated.currency,
+        taxRate: Number(updated.taxRate),
+        brandConfig: updated.brandConfig || {},
+        businessSettings: updated.businessSettings || {},
+      },
+      message: 'Business settings and branding updated successfully.',
+    });
+  } catch {
+    return NextResponse.json({ error: 'Unable to update tenant settings.' }, { status: 503 });
   }
-
-  const updatedName = parsed.data.name ?? existing.name;
-  const updatedCurrency = parsed.data.currency ?? existing.currency;
-  const updatedTaxRate = parsed.data.taxRate !== undefined ? parsed.data.taxRate : existing.tax_rate;
-  const updatedBrandConfig = parsed.data.brandConfig ? JSON.stringify(parsed.data.brandConfig) : existing.brand_config;
-  const updatedBusinessSettings = parsed.data.businessSettings ? JSON.stringify(parsed.data.businessSettings) : existing.business_settings;
-
-  db.prepare(`
-    UPDATE tenants
-    SET name = ?, currency = ?, tax_rate = ?, brand_config = ?, business_settings = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).run(updatedName, updatedCurrency, updatedTaxRate, updatedBrandConfig, updatedBusinessSettings, resolvedTenant);
-
-  await recordAuditEvent(resolvedTenant, {
-    actorId: user.id,
-    action: 'settings.updated',
-    resourceType: 'tenant_settings',
-    resourceId: resolvedTenant,
-    payload: { name: updatedName, currency: updatedCurrency, taxRate: updatedTaxRate },
-  });
-
-  return NextResponse.json({
-    success: true,
-    settings: {
-      id: resolvedTenant,
-      name: updatedName,
-      slug: existing.slug,
-      planTier: existing.plan_tier,
-      currency: updatedCurrency,
-      taxRate: updatedTaxRate,
-      brandConfig: updatedBrandConfig ? JSON.parse(updatedBrandConfig) : {},
-      businessSettings: updatedBusinessSettings ? JSON.parse(updatedBusinessSettings) : {},
-    },
-    message: 'Business settings and branding updated successfully.',
-  });
 }
