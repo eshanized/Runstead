@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { recordAuditEvent } from './audit.service.ts';
 import type { Customer, Prisma } from '@prisma/client';
 
@@ -51,8 +51,8 @@ export async function listCustomers(tenantId: string, options: ListCustomersOpti
     ];
   }
 
-  const [customers, total] = await Promise.all([
-    prisma.customer.findMany({
+  const [customers, total] = await withTenantContext(tenantId, async (tx) => Promise.all([
+    tx.customer.findMany({
       where,
       skip,
       take: limit,
@@ -68,7 +68,7 @@ export async function listCustomers(tenantId: string, options: ListCustomersOpti
         },
       },
     }),
-    prisma.customer.count({ where }),
+    tx.customer.count({ where }),
   ]);
 
   return {
@@ -83,7 +83,7 @@ export async function listCustomers(tenantId: string, options: ListCustomersOpti
 }
 
 export async function getCustomerById(tenantId: string, customerId: string) {
-  return prisma.customer.findUnique({
+  return withTenantContext(tenantId, (tx) => tx.customer.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -97,11 +97,11 @@ export async function getCustomerById(tenantId: string, customerId: string) {
       domains: { orderBy: { createdAt: 'desc' } },
       tickets: { orderBy: { createdAt: 'desc' }, take: 10 },
     },
-  });
+  }));;
 }
 
 export async function createCustomer(tenantId: string, input: CreateCustomerInput, actorId?: string): Promise<Customer> {
-  const customer = await prisma.customer.create({
+  const customer = await withTenantContext(tenantId, (tx) => tx.customer.create({
     data: {
       tenantId,
       name: input.name,
@@ -112,7 +112,7 @@ export async function createCustomer(tenantId: string, input: CreateCustomerInpu
       phone: input.phone,
       userId: input.userId,
     },
-  });
+  }));;
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -131,7 +131,7 @@ export async function updateCustomer(
   input: UpdateCustomerInput,
   actorId?: string
 ): Promise<Customer> {
-  const customer = await prisma.customer.update({
+  const customer = await withTenantContext(tenantId, (tx) => tx.customer.update({
     where: {
       tenantId_id: {
         tenantId,
@@ -142,7 +142,7 @@ export async function updateCustomer(
       ...input,
       email: input.email ? input.email.toLowerCase().trim() : undefined,
     },
-  });
+  }));;
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -160,7 +160,7 @@ export async function archiveCustomer(tenantId: string, customerId: string, acto
 }
 
 export async function linkCustomerUser(tenantId: string, customerId: string, userId: string): Promise<Customer> {
-  return prisma.customer.update({
+  return withTenantContext(tenantId, (tx) => tx.customer.update({
     where: {
       tenantId_id: {
         tenantId,
@@ -168,5 +168,5 @@ export async function linkCustomerUser(tenantId: string, customerId: string, use
       },
     },
     data: { userId },
-  });
+  }));;
 }
