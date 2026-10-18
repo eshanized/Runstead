@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
-import { prisma } from '@/lib/db/client';
+import { withTenantContext } from '@/lib/db/client';
 import { listCustomers } from '@/lib/services/customer.service';
 import { listProducts } from '@/lib/services/product.service';
 import { listOrders } from '@/lib/services/order.service';
@@ -22,83 +22,96 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const [
-    custResult,
-    prodResult,
-    ordResult,
-    invResult,
-    servResult,
-    tickResult,
-    domainRows,
-    dnsRecords,
-    providerRows,
-    tenantRow,
-  ] = await Promise.all([
-    listCustomers(tenantId, { limit: 100 }),
-    listProducts(tenantId, { availableOnly: false }),
-    listOrders(tenantId, { limit: 100 }),
-    listInvoices(tenantId, { limit: 100 }),
-    listResellerServices(tenantId, { limit: 100 }),
-    listTickets(tenantId, { limit: 100 }),
-    prisma.domain.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
-    prisma.dnsRecord.findMany({
-      where: { tenantId },
-      include: { domain: { select: { domainName: true } } },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.providerCredential.findMany({
-      where: { tenantId },
-      select: { id: true, providerName: true, status: true, lastTestedAt: true },
-    }),
-    prisma.tenant.findUnique({ where: { id: tenantId } }),
-  ]);
+  try {
+    const [
+      custResult,
+      prodResult,
+      ordResult,
+      invResult,
+      servResult,
+      tickResult,
+      tenantData,
+    ] = await Promise.all([
+      listCustomers(tenantId, { limit: 100 }),
+      listProducts(tenantId, { availableOnly: false }),
+      listOrders(tenantId, { limit: 100 }),
+      listInvoices(tenantId, { limit: 100 }),
+      listResellerServices(tenantId, { limit: 100 }),
+      listTickets(tenantId, { limit: 100 }),
+      withTenantContext(tenantId, async (tx) => {
+        const [domains, dnsRecords, providerRows, tenant] = await Promise.all([
+          tx.domain.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
+          tx.dnsRecord.findMany({
+            where: { tenantId },
+            include: { domain: { select: { domainName: true } } },
+            orderBy: { createdAt: 'desc' },
+          }),
+          tx.providerCredential.findMany({
+            where: { tenantId },
+            select: { id: true, providerName: true, status: true, lastTestedAt: true },
+          }),
+          tx.tenant.findUnique({ where: { id: tenantId } }),
+        ]);
+        return { domains, dnsRecords, providerRows, tenant };
+      }),
+    ]);
 
-  return NextResponse.json({
-    syncedAt: new Date().toISOString(),
-    tenant: {
-      id: tenantRow?.id || tenantId,
-      name: tenantRow?.name || 'Runstead Platform',
-      slug: tenantRow?.slug || 'default',
-      currency: tenantRow?.currency || 'USD',
-      taxRate: Number(tenantRow?.taxRate || 0.0),
-      brand: tenantRow?.brandConfig || {},
-      business: tenantRow?.businessSettings || {},
-    },
-    customers: custResult.customers,
-    products: prodResult,
-    orders: ordResult.orders,
-    invoices: invResult.invoices,
-    services: servResult.services,
-    tickets: tickResult.tickets,
-    domains: domainRows.map((d) => ({
-      id: d.id,
-      domain: d.domainName,
-      domainName: d.domainName,
-      customerId: d.customerId,
-      status: d.status,
-      registeredDate: d.registeredDate || '',
-      expiryDate: d.expiryDate || '',
-      autoRenew: Boolean(d.autoRenew),
-      nameservers: Array.isArray(d.nameservers) ? d.nameservers : [],
-    })),
-    dnsRecords: dnsRecords.map((r) => ({
-      id: r.id,
-      tenantId: r.tenantId,
-      domainId: r.domainId,
-      domain: r.domain?.domainName,
-      type: r.type,
-      host: r.host,
-      value: r.value,
-      ttl: r.ttl,
-      priority: r.priority,
-    })),
-    integrations: providerRows.map((p) => ({
-      id: p.id,
-      name: p.providerName,
-      providerName: p.providerName,
-      status: p.status,
-      lastVerifiedAt: p.lastTestedAt,
-      lastTestedAt: p.lastTestedAt,
-    })),
-  });
+    const tenantRow = tenantData.tenant;
+    if (!tenantRow) {
+      return NextResponse.json({ error: 'Tenant not found in the authorized scope.' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      syncedAt: new Date().toISOString(),
+      tenant: {
+        id: tenantRow.id,
+        name: tenantRow.name,
+        slug: tenantRow.slug,
+        currency: tenantRow.currency,
+        taxRate: Number(tenantRow.taxRate),
+        brand: tenantRow.brandConfig || {},
+        business: tenantRow.businessSettings || {},
+      },
+      customers: custResult.customers,
+      products: prodResult,
+      orders: ordResult.orders,
+      invoices: invResult.invoices,
+      services: servResult.services,
+      tickets: tickResult.tickets,
+      domains: tenantData.domains.map((d) => ({
+        id: d.id,
+        domain: d.domainName,
+        domainName: d.domainName,
+        customerId: d.customerId,
+        status: d.status,
+        registrar: d.registrar,
+        registeredDate: d.registeredDate,
+        expiryDate: d.expiryDate,
+        autoRenew: d.autoRenew,
+        nameservers: Array.isArray(d.nameservers) ? d.nameservers : [],
+        domainType: d.domainType,
+      })),
+      dnsRecords: tenantData.dnsRecords.map((r) => ({
+        id: r.id,
+        tenantId: r.tenantId,
+        domainId: r.domainId,
+        domain: r.domain?.domainName,
+        type: r.type,
+        host: r.host,
+        value: r.value,
+        ttl: r.ttl,
+        priority: r.priority,
+      })),
+      integrations: tenantData.providerRows.map((p) => ({
+        id: p.id,
+        name: p.providerName,
+        providerName: p.providerName,
+        status: p.status,
+        lastVerifiedAt: p.lastTestedAt,
+        lastTestedAt: p.lastTestedAt,
+      })),
+    });
+  } catch {
+    return NextResponse.json({ error: 'Tenant data is temporarily unavailable.' }, { status: 503 });
+  }
 }
