@@ -56,6 +56,9 @@ export async function requireAuthenticatedUser(req: Request): Promise<Authentica
   if (!user) {
     throw new AuthenticationError('Active session required. Please sign in.');
   }
+  if (!user.emailVerified) {
+    throw new AuthenticationError('Email verification is required before accessing protected account operations.');
+  }
   return user;
 }
 
