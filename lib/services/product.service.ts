@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { withTenantContext } from '../db/client.ts';
 import { recordAuditEvent } from './audit.service.ts';
 import type { Product, Prisma } from '@prisma/client';
 
@@ -64,7 +64,7 @@ export async function listProducts(
     type: options.type ? options.type : undefined,
   };
 
-  return prisma.product.findMany({
+  return withTenantContext(tenantId, (tx) => tx.product.findMany({
     where,
     include: {
       pricing: {
@@ -78,11 +78,11 @@ export async function listProducts(
       },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }));;
 }
 
 export async function getProductById(tenantId: string, productId: string) {
-  return prisma.product.findUnique({
+  return withTenantContext(tenantId, (tx) => tx.product.findUnique({
     where: {
       tenantId_id: {
         tenantId,
@@ -92,11 +92,11 @@ export async function getProductById(tenantId: string, productId: string) {
     include: {
       pricing: true,
     },
-  });
+  }));;
 }
 
 export async function createProduct(tenantId: string, input: CreateProductInput, actorId?: string): Promise<Product> {
-  const product = await prisma.$transaction(async (tx) => {
+  const product = await withTenantContext(tenantId, async (tx) => {
     const created = await tx.product.create({
       data: {
         tenantId,
@@ -141,7 +141,7 @@ export async function updateProduct(
   input: UpdateProductInput,
   actorId?: string
 ): Promise<Product> {
-  const product = await prisma.$transaction(async (tx) => {
+  const product = await withTenantContext(tenantId, async (tx) => {
     const updated = await tx.product.update({
       where: {
         tenantId_id: {
@@ -192,14 +192,14 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(tenantId: string, productId: string, actorId?: string): Promise<boolean> {
-  await prisma.product.delete({
+  await withTenantContext(tenantId, (tx) => tx.product.delete({
     where: {
       tenantId_id: {
         tenantId,
         id: productId,
       },
     },
-  });
+  }));;
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -222,10 +222,10 @@ export async function calculateOrderPricing(
   let taxRate = 0;
   let currency = 'USD';
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await withTenantContext(tenantId, (tx) => tx.tenant.findUnique({
     where: { id: tenantId },
     select: { currency: true, taxRate: true },
-  });
+  }));;
 
   if (tenant) {
     taxRate = Number(tenant.taxRate || 0);
