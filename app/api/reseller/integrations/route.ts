@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
-import { prisma } from '@/lib/db/client';
+import { withTenantContext } from '@/lib/db/client';
 import { encryptData, decryptData } from '@/lib/security/encryption';
 import { recordAuditEvent } from '@/lib/services/audit.service';
 import { validateSafeEndpoint } from '@/lib/security/ssrf';
@@ -42,10 +42,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  const credentials = await prisma.providerCredential.findMany({
+  const credentials = await withTenantContext(tenantId, (tx) => tx.providerCredential.findMany({
     where: { tenantId },
     orderBy: { updatedAt: 'desc' },
-  });
+  }));
 
   const integrations = credentials.map((r) => {
     let host = 'Configured';
@@ -191,13 +191,8 @@ export async function POST(req: Request) {
 
   const now = new Date();
 
-  const cred = await prisma.providerCredential.upsert({
-    where: {
-      tenantId_providerName: {
-        tenantId,
-        providerName: normalizedProvider,
-      },
-    },
+  const cred = await withTenantContext(tenantId, (tx) => tx.providerCredential.upsert({
+    where: { tenantId_providerName: { tenantId, providerName: normalizedProvider } },
     update: {
       category,
       status: connectionStatus,
@@ -212,7 +207,7 @@ export async function POST(req: Request) {
       encryptedConfig: encryptedConfig as any,
       lastTestedAt: parsed.data.testConnection ? now : undefined,
     },
-  });
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,
@@ -263,12 +258,9 @@ export async function DELETE(req: Request) {
   const rawProvider = providerName.toLowerCase().trim();
   const normalized = PROVIDER_ALIASES[rawProvider]?.normalized || rawProvider;
 
-  await prisma.providerCredential.deleteMany({
-    where: {
-      tenantId,
-      providerName: normalized,
-    },
-  });
+  await withTenantContext(tenantId, (tx) => tx.providerCredential.deleteMany({
+    where: { tenantId, providerName: normalized },
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId: user.id,
