@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireResellerStaff, AuthorizationError, AuthenticationError } from '@/lib/auth/guards';
+import { requireResellerStaff, AuthenticationError } from '@/lib/auth/guards';
 import { getInvoiceById, settleInvoice } from '@/lib/services/invoice.service';
-import { processPendingJobs } from '@/lib/jobs/queue';
+import { recordAuditEvent } from '@/lib/services/audit.service';
 
-const payInvoiceSchema = z.object({
+const manualPaymentSchema = z.object({
   amount: z.number().positive().optional(),
-  method: z.string().default('manual_credit_card'),
-  providerTransactionId: z.string().optional(),
-  idempotencyKey: z.string().optional(),
+  method: z.literal('manual_offline').default('manual_offline'),
+  providerTransactionId: z.string().trim().min(3).max(255),
+  idempotencyKey: z.string().trim().min(8).max(255),
+  confirmationNote: z.string().trim().min(10).max(1000),
 });
 
 export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
@@ -28,16 +29,20 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Unauthorized' }, { status });
   }
 
-  let body: unknown = {};
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
-    // Empty body is allowed, defaults will be used
+    return NextResponse.json({ error: 'A manual payment confirmation payload is required.' }, { status: 400 });
   }
 
-  const parsed = payInvoiceSchema.safeParse(body);
+  const parsed = manualPaymentSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.format() }, { status: 400 });
+    return NextResponse.json({
+      error: 'Validation failed',
+      details: parsed.error.format(),
+      requirements: ['method=manual_offline', 'providerTransactionId', 'idempotencyKey', 'confirmationNote'],
+    }, { status: 400 });
   }
 
   const invoice = await getInvoiceById(tenantId, id);
@@ -45,37 +50,65 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
   }
 
-  const amount = parsed.data.amount || Number(invoice.total);
+  const authoritativeAmount = Number(invoice.total);
+  if (
+    parsed.data.amount !== undefined &&
+    Math.abs(parsed.data.amount - authoritativeAmount) > 0.009
+  ) {
+    return NextResponse.json({
+      error: 'Manual confirmation amount must match the server-calculated invoice balance.',
+      expectedAmount: authoritativeAmount,
+      currency: invoice.currency,
+    }, { status: 400 });
+  }
 
   try {
     const result = await settleInvoice(
       tenantId,
       id,
       {
-        amount,
-        method: parsed.data.method,
-        providerTransactionId: parsed.data.providerTransactionId || `tx_${Date.now()}`,
+        amount: authoritativeAmount,
+        currency: invoice.currency,
+        method: 'manual_offline',
+        providerTransactionId: parsed.data.providerTransactionId,
         idempotencyKey: parsed.data.idempotencyKey,
+        metadata: {
+          manualConfirmation: true,
+          confirmationNote: parsed.data.confirmationNote,
+          confirmedByUserId: user.id,
+        },
       },
       user.id
     );
 
-    // Run queued provisioning jobs automatically
-    await processPendingJobs({ limit: 10 });
+    if (!result.alreadySettled) {
+      await recordAuditEvent(tenantId, {
+        actorId: user.id,
+        action: 'invoice.manual_offline_payment_confirmed',
+        resourceType: 'invoice',
+        resourceId: id,
+        payload: {
+          amount: authoritativeAmount,
+          currency: invoice.currency,
+          providerTransactionId: parsed.data.providerTransactionId,
+          confirmationNote: parsed.data.confirmationNote,
+          idempotencyKey: parsed.data.idempotencyKey,
+        },
+      });
+    }
 
     const refreshed = await getInvoiceById(tenantId, id);
-
     return NextResponse.json({
       success: true,
       invoice: refreshed,
       payment: result.payment,
       alreadySettled: result.alreadySettled,
-      message: 'Invoice successfully settled and payment recorded.',
+      message: 'Manual offline payment evidence was recorded. If this invoice has an order, provisioning is queued for the worker and was not executed inside this request.',
     });
   } catch (err: unknown) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to settle invoice' },
-      { status: 400 }
+      { error: err instanceof Error ? err.message : 'Manual payment confirmation failed.' },
+      { status: 409 }
     );
   }
 }
