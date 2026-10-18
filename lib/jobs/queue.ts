@@ -1,4 +1,4 @@
-import { prisma } from '../db/client.ts';
+import { adminPrisma as prisma, withTenantContext } from '../db/client.ts';
 import { getLocalDb, resolveLocalTenantId } from '../db/local-db.ts';
 import { getHostingProvider } from '../providers/hosting/factory.ts';
 import { sendTransactionalNotification } from '../services/notification.service.ts';
@@ -24,7 +24,7 @@ export async function enqueueJob(
   const sanitizedPayload = redactSensitiveData(payload);
 
   try {
-    return await prisma.backgroundJob.create({
+    return await withTenantContext(tenantId, (tx) => tx.backgroundJob.create({
       data: {
         tenantId,
         jobType,
@@ -34,7 +34,7 @@ export async function enqueueJob(
         payload: sanitizedPayload,
         runAt: options.runAt || new Date(),
       },
-    });
+    }));
   } catch (err) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(`Failed to enqueue background job: ${err instanceof Error ? err.message : String(err)}`);
