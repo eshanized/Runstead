@@ -8,7 +8,10 @@ export async function POST(
 ) {
   const { id: ticketId } = await params;
   const url = new URL(req.url);
-  const tenantId = url.searchParams.get('tenantId') || 'default';
+  const tenantId = url.searchParams.get('tenantId');
+  if (!tenantId) {
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+  }
 
   let customer;
   let user;
