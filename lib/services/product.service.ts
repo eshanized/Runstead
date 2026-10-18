@@ -78,7 +78,7 @@ export async function listProducts(
       },
     },
     orderBy: { createdAt: 'desc' },
-  }));;
+  }));
 }
 
 export async function getProductById(tenantId: string, productId: string) {
@@ -92,7 +92,7 @@ export async function getProductById(tenantId: string, productId: string) {
     include: {
       pricing: true,
     },
-  }));;
+  }));
 }
 
 export async function createProduct(tenantId: string, input: CreateProductInput, actorId?: string): Promise<Product> {
@@ -199,7 +199,7 @@ export async function deleteProduct(tenantId: string, productId: string, actorId
         id: productId,
       },
     },
-  }));;
+  }));
 
   await recordAuditEvent(tenantId, {
     actorId,
@@ -225,7 +225,7 @@ export async function calculateOrderPricing(
   const tenant = await withTenantContext(tenantId, (tx) => tx.tenant.findUnique({
     where: { id: tenantId },
     select: { currency: true, taxRate: true },
-  }));;
+  }));
 
   if (tenant) {
     taxRate = Number(tenant.taxRate || 0);
